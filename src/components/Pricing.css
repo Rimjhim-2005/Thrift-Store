@@ -1,0 +1,111 @@
+/* #pricing {
+  padding: 120px 64px;
+  background: var(--parchment);
+  position: relative; overflow: hidden;
+}
+
+.pricing-bg {
+  position: absolute; bottom: -100px; left: -100px;
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(92,107,58,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.pricing-header { text-align: center; margin-bottom: 72px; position: relative; z-index: 1; }
+.pricing-sub {
+  font-size: 16px; line-height: 1.7; color: var(--bark);
+  max-width: 520px; margin: 16px auto 0; font-weight: 300;
+}
+
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; max-width: 960px; margin: 0 auto;
+  position: relative; z-index: 1;
+  align-items: start;
+}
+
+.pricing-card {
+  background: white; border-radius: 20px; padding: 40px 36px;
+  border: 1.5px solid rgba(45,36,22,0.08);
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.pricing-card:hover { transform: translateY(-6px); box-shadow: 0 24px 60px rgba(45,36,22,0.1); }
+.pricing-card.featured {
+  background: var(--soil); color: var(--cream);
+  border-color: var(--soil); transform: scale(1.04);
+}
+.pricing-card.featured:hover { transform: scale(1.04) translateY(-6px); }
+
+.pricing-popular {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: var(--rust); color: white;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 18px; border-radius: 40px;
+}
+
+.pricing-tier {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--moss); margin-bottom: 8px;
+}
+.pricing-card.featured .pricing-tier { color: var(--sage); }
+
+.pricing-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 700; color: var(--soil); margin-bottom: 4px;
+}
+.pricing-card.featured .pricing-name { color: var(--cream); }
+
+.pricing-desc {
+  font-size: 13px; color: var(--muted); font-weight: 300; margin-bottom: 28px;
+}
+.pricing-card.featured .pricing-desc { color: rgba(250,246,236,0.55); }
+
+.pricing-price {
+  display: flex; align-items: baseline; gap: 4px; margin-bottom: 32px;
+}
+.pricing-currency {
+  font-size: 20px; font-weight: 600; color: var(--soil); align-self: flex-start; margin-top: 6px;
+}
+.pricing-card.featured .pricing-currency { color: var(--cream); }
+.pricing-amount {
+  font-family: 'Playfair Display', serif;
+  font-size: 54px; font-weight: 700; color: var(--soil); line-height: 1;
+}
+.pricing-card.featured .pricing-amount { color: var(--cream); }
+.pricing-period { font-size: 14px; color: var(--muted); }
+.pricing-card.featured .pricing-period { color: rgba(250,246,236,0.5); }
+
+.pricing-divider {
+  height: 1px; background: rgba(45,36,22,0.08); margin-bottom: 28px;
+}
+.pricing-card.featured .pricing-divider { background: rgba(255,255,255,0.1); }
+
+.pricing-features {
+  list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px;
+}
+.pricing-features li {
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 14px; color: var(--bark); line-height: 1.5;
+}
+.pricing-card.featured .pricing-features li { color: rgba(250,246,236,0.8); }
+
+.pricing-check {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(92,107,58,0.15); color: var(--moss);
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.pricing-card.featured .pricing-check { background: rgba(138,158,107,0.25); color: var(--sage); }
+
+.btn-pricing {
+  width: 100%; padding: 14px;
+  border-radius: 8px; border: 1.5px solid rgba(45,36,22,0.2);
+  background: transparent; color: var(--soil);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-pricing:hover { background: var(--soil); color: var(--cream); border-color: var(--soil); }
+.btn-pricing.featured-btn {
+  background: var(--rust); color: white; border-color: var(--rust);
+}
+.btn-pricing.featured-btn:hover { background: var(--clay); border-color: var(--clay); } */

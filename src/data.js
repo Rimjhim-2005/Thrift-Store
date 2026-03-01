@@ -1,0 +1,177 @@
+// ── Shared data ─────────────────────────────────────────────────────────────
+
+export const SHOPS = [
+  {
+    id: 1, banner: "banner-1", logo: "🧥",
+    name: "The Vintage Vault", location: "Quezon City, Metro Manila",
+    address: "42 Malingap St., Teachers Village, Quezon City",
+    hours: "Mon–Sat 10am–7pm · Sun 12pm–6pm",
+    phone: "+63 912 345 6789", email: "hello@vintagevault.ph",
+    desc: "Curated vintage pieces from the 60s to 90s. We specialize in denim, band tees, and rare outerwear from around the world.",
+    longDesc: "The Vintage Vault has been Quezon City's favourite destination for authentic vintage clothing since 2015. Every piece in our shop is personally sourced from estate sales, surplus markets, and international thrift stores — carefully inspected, cleaned, and priced fairly.",
+    tags: ["Vintage", "Denim", "Outerwear"], rating: 4.9, reviews: 214, items: 142, since: "2015",
+  },
+  {
+    id: 2, banner: "banner-2", logo: "🌿",
+    name: "Earthbound Finds", location: "Makati, Metro Manila",
+    address: "18 Legazpi St., Legazpi Village, Makati",
+    hours: "Tue–Sun 11am–8pm · Closed Mondays",
+    phone: "+63 917 654 3210", email: "shop@earthboundfinds.com",
+    desc: "Sustainable secondhand fashion with a focus on natural fibers — linen, cotton, and wool. Ethically sourced, beautifully priced.",
+    longDesc: "Earthbound Finds was born from a deep belief that fashion and sustainability go hand in hand. We stock only natural-fiber garments sourced through our network of conscious sellers across Southeast Asia.",
+    tags: ["Sustainable", "Linen & Cotton", "Women's"], rating: 4.8, reviews: 189, items: 89, since: "2018",
+  },
+  {
+    id: 3, banner: "banner-3", logo: "👟",
+    name: "Rethread Studio", location: "BGC, Taguig",
+    address: "Unit 4, The Grid, 9th Ave., BGC, Taguig",
+    hours: "Daily 11am–9pm",
+    phone: "+63 998 111 2233", email: "rethread@studio.ph",
+    desc: "Streetwear, sneakers, and limited drops resold at fair prices. Authentication available for all branded items.",
+    longDesc: "Rethread Studio is BGC's go-to spot for pre-loved streetwear and authenticated sneakers. We carry Supreme, Palace, Off-White, Nike, and more — every piece verified by our in-house authentication team.",
+    tags: ["Streetwear", "Sneakers", "Branded"], rating: 4.7, reviews: 302, items: 203, since: "2019",
+  },
+];
+
+const PALETTES = [
+  "linear-gradient(135deg,#C9B99A 0%,#A08060 100%)",
+  "linear-gradient(135deg,#2C2824 0%,#4A3728 100%)",
+  "linear-gradient(135deg,#D4C5B0 0%,#B8A898 100%)",
+  "linear-gradient(135deg,#8A9E6B 0%,#5C6B3A 100%)",
+  "linear-gradient(135deg,#C4844A 0%,#8B5E34 100%)",
+  "linear-gradient(135deg,#6B8A9E 0%,#3A5C6B 100%)",
+  "linear-gradient(135deg,#9E8A6B 0%,#6B5C3A 100%)",
+  "linear-gradient(135deg,#E0D4C0 0%,#C0B098 100%)",
+];
+
+export const PRODUCTS = [
+  // Shop 1 — The Vintage Vault
+  {
+    id: 101, shopId: 1, name: "Levi's 501 Original Jeans", category: "Bottoms", price: 850,
+    size: "W30 L32", condition: "Good", palette: PALETTES[0], tag: "Vintage",
+    tags: ["jeans", "denim", "blue", "casual", "streetwear", "pants", "vintage", "90s", "levis", "classic"],
+    color: "blue", style: "casual", era: "90s",
+    desc: "Classic straight-leg Levi's 501 in medium stonewash. Minor fading at knees adds to the authentic vintage character. Zipper fly, five-pocket styling.",
+  },
+  {
+    id: 102, shopId: 1, name: "1980s Band Tee — The Cure", category: "Tops", price: 1200,
+    size: "M", condition: "Very Good", palette: PALETTES[1], tag: "Rare Find",
+    tags: ["tshirt", "band tee", "black", "graphic", "vintage", "80s", "music", "casual", "concert", "rock"],
+    color: "black", style: "casual", era: "80s",
+    desc: "Original 1984 Pornography tour tee. Screen-printed graphic in excellent condition. Some yellowing to collar consistent with age. A true collector's piece.",
+  },
+  {
+    id: 103, shopId: 1, name: "Levi's Trucker Jacket", category: "Outerwear", price: 1800,
+    size: "L", condition: "Excellent", palette: PALETTES[2], tag: "Bestseller",
+    tags: ["jacket", "denim", "blue", "casual", "outerwear", "vintage", "levis", "layering", "trucker", "classic"],
+    color: "blue", style: "casual", era: "classic",
+    desc: "Classic denim trucker in dark indigo. Barely worn, no fading, all buttons intact. The gold standard of denim jackets.",
+  },
+  {
+    id: 104, shopId: 1, name: "Vintage Corduroy Trousers", category: "Bottoms", price: 650,
+    size: "W32 L30", condition: "Good", palette: PALETTES[3], tag: null,
+    tags: ["pants", "corduroy", "tan", "brown", "casual", "vintage", "70s", "earthy", "retro", "trousers"],
+    color: "tan", style: "casual", era: "70s",
+    desc: "Warm tan corduroy trousers with a straight cut. Light wear at pockets. Pairs beautifully with anything cream or rust.",
+  },
+  {
+    id: 105, shopId: 1, name: "90s Champion Hoodie", category: "Tops", price: 950,
+    size: "XL", condition: "Very Good", palette: PALETTES[4], tag: "New",
+    tags: ["hoodie", "grey", "sweatshirt", "casual", "streetwear", "90s", "champion", "sporty", "warm", "cozy"],
+    color: "grey", style: "streetwear", era: "90s",
+    desc: "Heavyweight reverse-weave Champion hoodie in vintage grey. Embroidered logo on chest. A staple of 90s American sportswear.",
+  },
+  {
+    id: 106, shopId: 1, name: "Plaid Flannel Shirt", category: "Tops", price: 480,
+    size: "M", condition: "Good", palette: PALETTES[5], tag: null,
+    tags: ["shirt", "flannel", "plaid", "red", "black", "casual", "grunge", "layering", "90s", "checkered"],
+    color: "red", style: "grunge", era: "90s",
+    desc: "Red and black buffalo plaid flannel in soft cotton. Classic grunge-era styling.",
+  },
+  // Shop 2 — Earthbound Finds
+  {
+    id: 201, shopId: 2, name: "Linen Wrap Midi Dress", category: "Dresses", price: 920,
+    size: "S", condition: "Excellent", palette: PALETTES[7], tag: "Sustainable",
+    tags: ["dress", "linen", "beige", "cream", "wrap", "midi", "sustainable", "minimal", "elegant", "summer"],
+    color: "beige", style: "minimal", era: "modern",
+    desc: "Breathable stone-coloured linen wrap dress with adjustable waist tie. Barely worn, care tags intact.",
+  },
+  {
+    id: 202, shopId: 2, name: "Merino Wool Cardigan", category: "Tops", price: 1100,
+    size: "M", condition: "Very Good", palette: PALETTES[0], tag: "Natural Fiber",
+    tags: ["cardigan", "wool", "oatmeal", "beige", "knitwear", "cozy", "layering", "sustainable", "fall", "minimal"],
+    color: "oatmeal", style: "minimal", era: "modern",
+    desc: "Chunky merino wool cardigan in oatmeal. Open-front silhouette with deep side pockets.",
+  },
+  {
+    id: 203, shopId: 2, name: "Cotton Wide-Leg Trousers", category: "Bottoms", price: 750,
+    size: "W28", condition: "Excellent", palette: PALETTES[3], tag: "New",
+    tags: ["pants", "wide leg", "green", "sage", "cotton", "sustainable", "minimal", "relaxed", "trousers", "summer"],
+    color: "sage", style: "minimal", era: "modern",
+    desc: "Organic cotton wide-leg trousers in sage green. High-rise, elasticated back waist.",
+  },
+  {
+    id: 204, shopId: 2, name: "Silk Blend Blouse", category: "Tops", price: 680,
+    size: "S/M", condition: "Good", palette: PALETTES[4], tag: null,
+    tags: ["blouse", "silk", "ivory", "white", "elegant", "dressy", "minimal", "women", "formal", "sheer"],
+    color: "ivory", style: "elegant", era: "modern",
+    desc: "Ivory silk-blend blouse with a subtle sheen. Relaxed tuck-in silhouette.",
+  },
+  {
+    id: 205, shopId: 2, name: "Linen Bucket Hat", category: "Accessories", price: 320,
+    size: "One Size", condition: "Excellent", palette: PALETTES[2], tag: "Summer",
+    tags: ["hat", "linen", "beige", "ecru", "summer", "accessory", "sustainable", "casual", "sun hat", "natural"],
+    color: "ecru", style: "casual", era: "modern",
+    desc: "Washed linen bucket hat in natural ecru. A true slow-fashion essential.",
+  },
+  {
+    id: 206, shopId: 2, name: "Wool Blend Overcoat", category: "Outerwear", price: 2400,
+    size: "M", condition: "Very Good", palette: PALETTES[1], tag: "Rare Find",
+    tags: ["coat", "wool", "charcoal", "grey", "overcoat", "formal", "winter", "elegant", "classic", "outerwear"],
+    color: "charcoal", style: "formal", era: "classic",
+    desc: "Charcoal wool-blend overcoat in a classic double-breasted cut. Fully lined, all buttons present.",
+  },
+  // Shop 3 — Rethread Studio
+  {
+    id: 301, shopId: 3, name: "Nike Air Max 90 — OG", category: "Sneakers", price: 4500,
+    size: "US 10", condition: "Very Good", palette: PALETTES[5], tag: "Authenticated",
+    tags: ["sneakers", "nike", "white", "shoes", "air max", "streetwear", "sporty", "casual", "kicks", "90s"],
+    color: "white", style: "streetwear", era: "90s",
+    desc: "Original Nike Air Max 90 in white/infrared colourway. Purchased 2020, worn lightly.",
+  },
+  {
+    id: 302, shopId: 3, name: "Supreme Box Logo Tee", category: "Tops", price: 3200,
+    size: "L", condition: "Excellent", palette: PALETTES[1], tag: "Authenticated",
+    tags: ["tshirt", "supreme", "black", "graphic", "streetwear", "hype", "casual", "logo", "branded", "collector"],
+    color: "black", style: "streetwear", era: "modern",
+    desc: "SS22 Supreme Box Logo tee in black. Worn once, washed cold, hung dry.",
+  },
+  {
+    id: 303, shopId: 3, name: "Carhartt WIP Cargo Pants", category: "Bottoms", price: 1850,
+    size: "W32 L32", condition: "Good", palette: PALETTES[6], tag: "Streetwear",
+    tags: ["pants", "cargo", "brown", "tan", "carhartt", "streetwear", "utility", "workwear", "casual", "wide leg"],
+    color: "brown", style: "streetwear", era: "modern",
+    desc: "Carhartt WIP Double Knee pants in Hamilton Brown. Heavy canvas construction with classic cargo pockets.",
+  },
+  {
+    id: 304, shopId: 3, name: "Stüssy Crewneck Sweatshirt", category: "Tops", price: 1600,
+    size: "M", condition: "Very Good", palette: PALETTES[0], tag: "New",
+    tags: ["sweatshirt", "crewneck", "navy", "blue", "stussy", "streetwear", "casual", "logo", "90s", "embroidered"],
+    color: "navy", style: "streetwear", era: "90s",
+    desc: "Classic Stüssy World Tour crewneck in washed navy. Embroidered logo at chest.",
+  },
+  {
+    id: 305, shopId: 3, name: "Off-White Industrial Belt", category: "Accessories", price: 2800,
+    size: "One Size", condition: "Excellent", palette: PALETTES[4], tag: "Authenticated",
+    tags: ["belt", "off-white", "yellow", "accessory", "streetwear", "hype", "canvas", "designer", "branded", "statement"],
+    color: "yellow", style: "streetwear", era: "modern",
+    desc: "Off-White Industrial canvas belt in yellow/black. Authenticated by our team.",
+  },
+  {
+    id: 306, shopId: 3, name: "Patta Track Jacket", category: "Outerwear", price: 2200,
+    size: "L", condition: "Very Good", palette: PALETTES[7], tag: "Limited",
+    tags: ["jacket", "track jacket", "patta", "nike", "collab", "streetwear", "sporty", "limited", "rare", "outerwear"],
+    color: "cream", style: "streetwear", era: "modern",
+    desc: "Patta x Nike track jacket from the 2021 collaboration. Barely worn, all zippers smooth.",
+  },
+];
