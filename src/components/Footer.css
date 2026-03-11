@@ -1,0 +1,48 @@
+footer {
+  background: var(--soil); color: var(--cream);
+  padding: 72px 64px 0;
+}
+
+.footer-grid {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 60px; padding-bottom: 56px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.footer-brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 700; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.footer-brand-icon {
+  width: 32px; height: 32px; background: var(--moss);
+  border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.footer-tagline {
+  font-size: 14px; line-height: 1.7;
+  color: rgba(250,246,236,0.45); font-weight: 300; max-width: 260px;
+}
+.footer-socials { display: flex; gap: 12px; margin-top: 28px; }
+.social-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  cursor: pointer; transition: background 0.2s;
+}
+.social-btn:hover { background: rgba(255,255,255,0.15); }
+
+.footer-col-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--sage); margin-bottom: 22px;
+}
+.footer-links { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.footer-links a {
+  font-size: 14px; color: rgba(250,246,236,0.5);
+  text-decoration: none; font-weight: 300; transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--straw); }
+
+.footer-bottom {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 22px 0; font-size: 12px; color: rgba(250,246,236,0.3);
+}

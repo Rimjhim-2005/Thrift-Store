@@ -1,0 +1,121 @@
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 140px 64px 80px;
+  position: relative; overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 40%, #DDD0A8 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 20% 80%, #C4B896 0%, transparent 60%),
+    var(--cream);
+}
+
+.hero-deco {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(92, 107, 58, 0.15);
+}
+.hero-deco-1 { width: 600px; height: 600px; top: -150px; right: -100px; }
+.hero-deco-2 { width: 400px; height: 400px; top: -50px; right: 100px; border-color: rgba(92,107,58,0.08); }
+.hero-deco-3 { width: 200px; height: 200px; bottom: 80px; left: 40px; border-color: rgba(184,92,44,0.12); }
+
+.hero-inner { position: relative; z-index: 1; max-width: 780px; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--tag-bg); border: 1px solid var(--straw);
+  border-radius: 40px; padding: 6px 16px;
+  font-size: 12px; font-weight: 500; color: var(--moss);
+  letter-spacing: 0.04em; margin-bottom: 28px;
+  opacity: 0; animation: fadeUp 0.7s ease 0.2s forwards;
+}
+.hero-badge-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--moss);
+  animation: pulse 2s ease infinite;
+}
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(50px, 7vw, 88px);
+  font-weight: 700; line-height: 1.0;
+  letter-spacing: -0.03em; color: var(--soil);
+  opacity: 0; animation: fadeUp 0.7s ease 0.35s forwards;
+}
+.hero-title em { font-style: italic; color: var(--rust); display: block; }
+
+.hero-sub {
+  margin-top: 28px; max-width: 520px;
+  font-size: 17px; line-height: 1.7; font-weight: 300; color: var(--bark);
+  opacity: 0; animation: fadeUp 0.7s ease 0.5s forwards;
+}
+
+.hero-cta-row {
+  margin-top: 44px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  opacity: 0; animation: fadeUp 0.7s ease 0.65s forwards;
+}
+
+.btn-hero-primary {
+  padding: 15px 36px;
+  background: var(--soil); color: var(--cream);
+  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+  border: none; border-radius: 8px; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: background 0.25s, transform 0.2s;
+}
+.btn-hero-primary:hover { background: var(--bark); transform: translateY(-2px); }
+
+.btn-hero-secondary {
+  padding: 15px 36px;
+  background: transparent; color: var(--soil);
+  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+  border: 1.5px solid rgba(45,36,22,0.25); border-radius: 8px;
+  cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: all 0.25s;
+}
+.btn-hero-secondary:hover { border-color: var(--soil); background: var(--soil); color: var(--cream); }
+
+.hero-stats {
+  margin-top: 72px; display: flex; gap: 48px;
+  padding-top: 40px; border-top: 1px solid rgba(45,36,22,0.1);
+  opacity: 0; animation: fadeUp 0.7s ease 0.8s forwards;
+}
+.hero-stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px; font-weight: 700; color: var(--soil); line-height: 1;
+}
+.hero-stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Floating cards */
+.hero-float {
+  position: absolute; right: 64px; top: 50%;
+  z-index: 2;
+  opacity: 0;
+  animation: fadeIn 1s ease 1s forwards, float 6s ease 2s infinite;
+}
+.hero-float-card {
+  background: white; border-radius: 16px;
+  padding: 16px; width: 220px;
+  box-shadow: 0 20px 60px rgba(45,36,22,0.15), 0 4px 12px rgba(45,36,22,0.08);
+}
+.hero-float-card + .hero-float-card { margin-top: 16px; }
+.hero-float-img {
+  width: 100%; height: 130px; border-radius: 10px; margin-bottom: 12px;
+}
+.banner-green { background: linear-gradient(135deg, #8A9E6B 0%, #5C6B3A 100%); }
+.banner-rust  { background: linear-gradient(135deg, #C4844A 0%, #8B5E34 100%); }
+.hero-float-tag {
+  display: inline-block; font-size: 10px; font-weight: 500;
+  padding: 3px 10px; border-radius: 40px; margin-bottom: 6px;
+}
+.tag-green { background: #DFF0D0; color: var(--moss); }
+.tag-rust  { background: #FADDCA; color: var(--rust); }
+.hero-float-name  { font-size: 13px; font-weight: 500; color: var(--soil); }
+.hero-float-shop  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.hero-float-price {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700; color: var(--rust); margin-top: 6px;
+}
