@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { PRODUCTS, SHOPS } from "../data";
+import useAppStore from "../store/useAppStore";
+import apiClient from "../api/apiClient";
 import "./SearchPage.css";
 
 // ── Text-based search ────────────────────────────────────────────────────────
@@ -15,8 +16,7 @@ function scoreProduct(product, query) {
     if (product.style?.toLowerCase().includes(word))   score += 6;
     if (product.era?.toLowerCase().includes(word))     score += 5;
     if (product.tags?.some((t) => t.toLowerCase().includes(word))) score += 4;
-    if (product.desc.toLowerCase().includes(word))     score += 2;
-    if (product.tag?.toLowerCase().includes(word))     score += 3;
+    if (product.description?.toLowerCase().includes(word))     score += 2;
   }
   return score;
 }
@@ -88,17 +88,16 @@ function scoreProductByAI(product, aiResult) {
     if (product.style?.toLowerCase().includes(term))     score += 8;
     if (product.era?.toLowerCase().includes(term))       score += 6;
     if (product.tags?.some((t) => t.toLowerCase().includes(term))) score += 5;
-    if (product.desc.toLowerCase().includes(term))       score += 2;
+    if (product.description?.toLowerCase().includes(term))       score += 2;
   }
   return score;
 }
 
 // ── Product card ─────────────────────────────────────────────────────────────
 function ProductCard({ product, onProductClick, score }) {
-  const shop = SHOPS.find((s) => s.id === product.shopId);
   return (
     <div className="sp-product-card" onClick={() => onProductClick(product)}>
-      <div className="sp-product-img" style={{ background: product.palette }}>
+      <div className="sp-product-img" style={{ backgroundImage: `url(${product.image})`, backgroundSize: 'cover' }}>
         {product.tag && <span className="sp-product-tag">{product.tag}</span>}
         <div className="sp-product-hover-overlay">
           <span>View Product</span>
@@ -113,12 +112,12 @@ function ProductCard({ product, onProductClick, score }) {
           ))}
         </div>
         <div className="sp-product-meta">
-          <span className="sp-product-shop">🏪 {shop?.name}</span>
-          <span className="sp-product-size">{product.size}</span>
+          <span className="sp-product-shop">🏪 {product.seller}</span>
+          <span className="sp-product-size">{product.size || "One Size"}</span>
         </div>
         <div className="sp-product-footer">
-          <span className="sp-product-price">₱ {product.price.toLocaleString()}</span>
-          <span className="sp-product-condition">{product.condition}</span>
+          <span className="sp-product-price">₱ {(product.price || 0).toLocaleString()}</span>
+          <span className="sp-product-condition">{product.condition || "Good"}</span>
         </div>
       </div>
     </div>
@@ -140,27 +139,33 @@ export default function SearchPage({ onBack, onProductClick }) {
   const [aiError, setAiError]           = useState(null);
   const [aiResults, setAiResults]       = useState(null);
 
+  const { products } = useAppStore();
   const fileInputRef = useRef(null);
 
   // ── Text search ────────────────────────────────────────────────────────────
-  const handleSearch = (q = query) => {
+  const handleSearch = async (q = query) => {
     const q2 = q.trim();
     if (!q2) { setResults(null); return; }
 
-    let scored = PRODUCTS.map((p) => ({ ...p, _score: scoreProduct(p, q2) }))
-      .filter((p) => p._score > 0);
+    try {
+      const response = await apiClient.get('/search', { params: { q: q2 } });
+      let scored = response.data.results || [];
 
-    if (category !== "All") scored = scored.filter((p) => p.category === category);
+      if (category !== "All") scored = scored.filter((p) => p.category === category);
 
-    scored.sort((a, b) => {
-      if (sort === "price-asc")  return a.price - b.price;
-      if (sort === "price-desc") return b.price - a.price;
-      return b._score - a._score;
-    });
+      scored.sort((a, b) => {
+        if (sort === "price-asc")  return a.price - b.price;
+        if (sort === "price-desc") return b.price - a.price;
+        return scoreProduct(b, q2) - scoreProduct(a, q2);
+      });
 
-    setResults(scored);
-    setAiResults(null);
-    setAiResult(null);
+      setResults(scored);
+      setAiResults(null);
+      setAiResult(null);
+    } catch (err) {
+      console.error('Search error:', err);
+      setResults([]);
+    }
   };
 
   const handleKeyDown = (e) => { if (e.key === "Enter") handleSearch(); };
@@ -184,7 +189,7 @@ export default function SearchPage({ onBack, onProductClick }) {
         setAiResult(result);
 
         // Score and filter products
-        let scored = PRODUCTS.map((p) => ({
+        let scored = products.map((p) => ({
           ...p, _score: scoreProductByAI(p, result),
         })).filter((p) => p._score > 0)
           .sort((a, b) => b._score - a._score);

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./styles/globals.css";
+import useAppStore from "./store/useAppStore";
 import Navbar        from "./components/Navbar";
 import Hero          from "./components/Hero";
 import HowItWorks    from "./components/HowItWorks";
@@ -18,6 +19,15 @@ export default function App() {
   const [activeShop, setActiveShop]       = useState(null);
   const [activeProduct, setActiveProduct] = useState(null);
   const [cart, setCart]                   = useState([]);
+
+  // Get store data and actions
+  const { fetchAllProducts, isAuthenticated } = useAppStore();
+  const products = useAppStore((state) => state.products.items);
+
+  // Fetch products on mount
+  useEffect(() => {
+    fetchAllProducts();
+  }, [fetchAllProducts]);
 
   const goHome    = ()      => { setPage("home");    window.scrollTo(0, 0); };
   const goLogin   = ()      => { setPage("login");   window.scrollTo(0, 0); };
@@ -52,7 +62,7 @@ export default function App() {
       <Navbar onLoginClick={goLogin} onSearchClick={goSearch} />
       <Hero   onLoginClick={goLogin} />
       <HowItWorks />
-      <BrowseShops onShopClick={goShop} />
+      <BrowseShops onShopClick={goShop} products={products} />
       <Signup />
       <Footer />
     </>
