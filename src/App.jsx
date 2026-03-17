@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./styles/globals.css";
 import Navbar        from "./components/Navbar";
 import Hero          from "./components/Hero";
@@ -21,6 +21,17 @@ export default function App() {
   const [activeShop, setActiveShop]       = useState(null);
   const [activeProduct, setActiveProduct] = useState(null);
   const [user, setUser]                   = useState(null);
+
+  // ---------- Auth persistence (Issue 1) ----------------------------------
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/auth/me", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.user) setUser(data.user); })
+      .catch(() => {})
+      .finally(() => setAuthLoading(false));
+  }, []);
 
   // ---------- Cart state -------------------------------------------------
   // cartItems: Array<{ _id, title, price, qty, images, shopName }>
@@ -45,7 +56,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    try { await fetch("http://localhost:5000/api/auth/logout", { credentials: "include" }); } catch {}
+    try { await fetch("http://localhost:5000/api/auth/logout", { method: "POST", credentials: "include" }); } catch {}
     setUser(null);
     setCartItems([]);
     setPage("home");
@@ -74,56 +85,84 @@ export default function App() {
   // ---------- Profile helper ---------------------------------------------
   const handleProfileUpdate = (updatedUser) => setUser(updatedUser);
 
-  // -----------------------------------------------------------------------
-  // Pages that replace the entire layout
-  // -----------------------------------------------------------------------
-  if (page === "login")     return <Login onBack={goHome} onLoginSuccess={handleLoginSuccess} />;
-  if (page === "search")    return <SearchPage onBack={goHome} onProductClick={goProduct} />;
-  if (page === "list-item") return <ListItem onBack={goHome} user={user} />;
-
-  if (page === "shop") return (
-    <ShopDetail
-      shop={activeShop}
-      onBack={goHome}
-      onProductClick={goProduct}
-    />
-  );
-
-  if (page === "product") return (
-    <ProductDetail
-      product={activeProduct}
-      onBackToShop={() => goShop(activeShop)}
-      onRelatedProduct={goProduct}
-      onShopClick={goShop}
-      cart={cartItems}
-      setCart={setCartItems}
-      onAddToCart={addToCart}
-    />
-  );
+  // ---------- Auth loading spinner ---------------------------------------
+  if (authLoading) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        height: "100vh", background: "#faf6ec",
+        fontFamily: "'DM Sans', sans-serif", color: "#7c6a50",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>♻</div>
+          <p>Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   // -----------------------------------------------------------------------
-  // Home layout
+  // Build page content based on current route
+  // -----------------------------------------------------------------------
+  let pageContent = null;
+
+  if (page === "login") {
+    pageContent = <Login onBack={goHome} onLoginSuccess={handleLoginSuccess} />;
+  } else if (page === "search") {
+    pageContent = <SearchPage onBack={goHome} onProductClick={goProduct} />;
+  } else if (page === "list-item") {
+    pageContent = <ListItem onBack={goHome} user={user} />;
+  } else if (page === "shop") {
+    pageContent = (
+      <ShopDetail
+        shop={activeShop}
+        onBack={goHome}
+        onProductClick={goProduct}
+      />
+    );
+  } else if (page === "product") {
+    pageContent = (
+      <ProductDetail
+        product={activeProduct}
+        onBackToShop={() => goShop(activeShop)}
+        onRelatedProduct={goProduct}
+        onShopClick={goShop}
+        cart={cartItems}
+        setCart={setCartItems}
+        onAddToCart={addToCart}
+      />
+    );
+  } else {
+    // Home layout
+    pageContent = (
+      <>
+        <Navbar
+          onLoginClick={goLogin}
+          onSearchClick={goSearch}
+          onListItemClick={goListItem}
+          user={user}
+          onLogout={handleLogout}
+          cartCount={cartCount}
+          onCartClick={() => setCartOpen(true)}
+          onProfileClick={() => setProfileOpen(true)}
+        />
+        <Hero onLoginClick={goLogin} />
+        <HowItWorks />
+        <BrowseShops onShopClick={goShop} />
+        <Signup user={user} />
+        <Footer />
+      </>
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Render: page content + always-present Cart drawer + UserProfile modal
   // -----------------------------------------------------------------------
   return (
     <>
-      <Navbar
-        onLoginClick={goLogin}
-        onSearchClick={goSearch}
-        onListItemClick={goListItem}
-        user={user}
-        onLogout={handleLogout}
-        cartCount={cartCount}
-        onCartClick={() => setCartOpen(true)}
-        onProfileClick={() => setProfileOpen(true)}
-      />
+      {pageContent}
 
-      <Hero onLoginClick={goLogin} />
-      <HowItWorks />
-      <BrowseShops onShopClick={goShop} />
-      <Signup user={user} />
-      <Footer />
-
-      {/* Cart drawer — shown over any page */}
+      {/* Cart drawer — always rendered so it works on every page (Issue 3) */}
       <Cart
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -138,6 +177,9 @@ export default function App() {
           user={user}
           onClose={() => setProfileOpen(false)}
           onUpdate={handleProfileUpdate}
+          cartItems={cartItems}
+          onRemoveFromCart={removeFromCart}
+          onQtyChange={changeQty}
         />
       )}
     </>

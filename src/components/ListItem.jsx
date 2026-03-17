@@ -48,12 +48,12 @@ export default function ListItem({ onBack, user }) {
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append("title", title);
+      formData.append("name", title);
       formData.append("description", description);
       formData.append("price", price);
       formData.append("category", category);
       formData.append("condition", condition);
-      if (imageFile) formData.append("image", imageFile);
+      if (imageFile) formData.append("images", imageFile);
 
       const res = await fetch(`${API}/items`, {
         method: "POST",

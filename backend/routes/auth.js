@@ -18,6 +18,11 @@ if (!process.env.EMAIL_PASS || process.env.EMAIL_PASS === "YOUR_GMAIL_APP_PASSWO
   console.warn("⚠️  EMAIL_PASS is not set in .env — welcome emails will fail. Generate a Gmail App Password at: https://myaccount.google.com/apppasswords");
 }
 
+// Verify transporter config at startup (non-blocking)
+transporter.verify()
+  .then(() => console.log("✅ Email transporter is ready"))
+  .catch((err) => console.error("❌ Email transporter config error:", err.message, "\n   → Make sure EMAIL_PASS is a Gmail App Password (16 chars), NOT your regular password."));
+
 async function sendWelcomeEmail(toEmail, userName) {
   try {
     await transporter.sendMail({
@@ -248,4 +253,18 @@ router.delete("/wishlist/:itemId", async (req, res) => {
   }
 });
 
+// ── GET /api/auth/orders ──────────────────────────────────
+router.get("/orders", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    const Order = require("../models/Order");
+    const orders = await Order.find({ userId: req.session.userId }).sort({ createdAt: -1 });
+    return res.status(200).json({ orders });
+  } catch (err) {
+    console.error("Orders fetch error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
 module.exports = router;
+

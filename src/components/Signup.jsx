@@ -50,7 +50,7 @@ export default function Signup({ user }) {
       const res = await fetch(`${API}/shop/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, shopName, email, city, category, description }),
+        body: JSON.stringify({ firstName, lastName, shopName, email, location: city, category, description }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Request failed."); return; }

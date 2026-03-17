@@ -17,7 +17,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "http://localhost:5173", // Vite dev server
+    origin: ["http://localhost:5173", "http://localhost:5174"], // Vite dev server (may pick either port)
     credentials: true,               // Allow cookies to be sent
   })
 );
