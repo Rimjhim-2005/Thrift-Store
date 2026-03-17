@@ -1,14 +1,68 @@
 import { useState } from "react";
 import "./Login.css";
 
-export default function Login({ onBack }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [submitted, setSubmitted] = useState(false);
-  const [showPass, setShowPass] = useState(false);
+const API = "http://localhost:5000/api";
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+export default function Login({ onBack, onLoginSuccess }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+  // Register form state
+  const [regFirstName, setRegFirstName] = useState("");
+  const [regLastName, setRegLastName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+
+
+  const clearMessages = () => { setError(""); setSuccess(""); };
+
+  const handleLogin = async () => {
+    clearMessages();
+    if (!loginEmail || !loginPassword) { setError("Please fill in all fields."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Login failed."); return; }
+      setSuccess("✓ Logged in!");
+      setTimeout(() => onLoginSuccess(data.user), 600);
+    } catch { setError("Network error. Is the backend running?"); }
+    finally { setLoading(false); }
+  };
+
+  const handleRegister = async () => {
+    clearMessages();
+    if (!regFirstName || !regLastName || !regEmail || !regPassword) { setError("Please fill in all fields."); return; }
+    if (regPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          firstName: regFirstName, lastName: regLastName,
+          email: regEmail, password: regPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Registration failed."); return; }
+      setSuccess("✓ Account created!");
+      setTimeout(() => onLoginSuccess(data.user), 600);
+    } catch { setError("Network error. Is the backend running?"); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -67,17 +121,21 @@ export default function Login({ onBack }) {
           <div className="login-tabs">
             <button
               className={`login-tab ${mode === "login" ? "active" : ""}`}
-              onClick={() => setMode("login")}
+              onClick={() => { setMode("login"); clearMessages(); }}
             >
               Log In
             </button>
             <button
               className={`login-tab ${mode === "register" ? "active" : ""}`}
-              onClick={() => setMode("register")}
+              onClick={() => { setMode("register"); clearMessages(); }}
             >
               Create Account
             </button>
           </div>
+
+          {/* Error / Success messages */}
+          {error && <div className="login-msg login-msg-error">{error}</div>}
+          {success && <div className="login-msg login-msg-success">{success}</div>}
 
           {mode === "login" ? (
             <>
@@ -86,7 +144,8 @@ export default function Login({ onBack }) {
 
               <div className="login-form-group">
                 <label className="login-label">Email Address</label>
-                <input type="email" className="login-input" placeholder="you@yourshop.com" />
+                <input type="email" className="login-input" placeholder="you@yourshop.com"
+                  value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
               </div>
 
               <div className="login-form-group">
@@ -99,6 +158,7 @@ export default function Login({ onBack }) {
                     type={showPass ? "text" : "password"}
                     className="login-input"
                     placeholder="••••••••"
+                    value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
                   />
                   <button className="login-show-pass" onClick={() => setShowPass(!showPass)}>
                     {showPass ? "Hide" : "Show"}
@@ -112,11 +172,11 @@ export default function Login({ onBack }) {
               </div>
 
               <button
-                className={`login-btn-submit ${submitted ? "submitted" : ""}`}
-                onClick={handleSubmit}
-                disabled={submitted}
+                className={`login-btn-submit ${success ? "submitted" : ""}`}
+                onClick={handleLogin}
+                disabled={loading}
               >
-                {submitted ? "✓ Logging you in…" : "Log In →"}
+                {loading ? "Logging in…" : success ? "✓ Logged in!" : "Log In →"}
               </button>
 
               <div className="login-divider"><span>or continue with</span></div>
@@ -128,33 +188,31 @@ export default function Login({ onBack }) {
 
               <p className="login-switch">
                 Don't have an account?{" "}
-                <button onClick={() => setMode("register")}>Sign up free</button>
+                <button onClick={() => { setMode("register"); clearMessages(); }}>Sign up free</button>
               </p>
             </>
           ) : (
             <>
-              <h1 className="login-form-title">List your shop</h1>
-              <p className="login-form-sub">Create an account to get your thrift shop discovered.</p>
+              <h1 className="login-form-title">Create your account</h1>
+              <p className="login-form-sub">Join Thriftly as a buyer. Want to sell? <a href="#" style={{color:"#5c6b3a",fontWeight:600}} onClick={(e)=>{e.preventDefault();onBack();}}>Apply for a shop listing</a>.</p>
 
               <div className="login-form-row">
                 <div className="login-form-group">
                   <label className="login-label">First Name</label>
-                  <input type="text" className="login-input" placeholder="Juan" />
+                  <input type="text" className="login-input" placeholder="Juan"
+                    value={regFirstName} onChange={(e) => setRegFirstName(e.target.value)} />
                 </div>
                 <div className="login-form-group">
                   <label className="login-label">Last Name</label>
-                  <input type="text" className="login-input" placeholder="Dela Cruz" />
+                  <input type="text" className="login-input" placeholder="Dela Cruz"
+                    value={regLastName} onChange={(e) => setRegLastName(e.target.value)} />
                 </div>
-              </div>
-
-              <div className="login-form-group">
-                <label className="login-label">Shop Name</label>
-                <input type="text" className="login-input" placeholder="e.g. The Vintage Vault" />
               </div>
 
               <div className="login-form-group">
                 <label className="login-label">Email Address</label>
-                <input type="email" className="login-input" placeholder="you@yourshop.com" />
+                <input type="email" className="login-input" placeholder="you@yourshop.com"
+                  value={regEmail} onChange={(e) => setRegEmail(e.target.value)} />
               </div>
 
               <div className="login-form-group">
@@ -164,6 +222,7 @@ export default function Login({ onBack }) {
                     type={showPass ? "text" : "password"}
                     className="login-input"
                     placeholder="Min. 8 characters"
+                    value={regPassword} onChange={(e) => setRegPassword(e.target.value)}
                   />
                   <button className="login-show-pass" onClick={() => setShowPass(!showPass)}>
                     {showPass ? "Hide" : "Show"}
@@ -179,11 +238,11 @@ export default function Login({ onBack }) {
               </div>
 
               <button
-                className={`login-btn-submit ${submitted ? "submitted" : ""}`}
-                onClick={handleSubmit}
-                disabled={submitted}
+                className={`login-btn-submit ${success ? "submitted" : ""}`}
+                onClick={handleRegister}
+                disabled={loading}
               >
-                {submitted ? "✓ Account Created!" : "Create Account →"}
+                {loading ? "Creating account…" : success ? "✓ Account Created!" : "Create Account →"}
               </button>
 
               <div className="login-divider"><span>or sign up with</span></div>
@@ -195,7 +254,7 @@ export default function Login({ onBack }) {
 
               <p className="login-switch">
                 Already have an account?{" "}
-                <button onClick={() => setMode("login")}>Log in</button>
+                <button onClick={() => { setMode("login"); clearMessages(); }}>Log in</button>
               </p>
             </>
           )}

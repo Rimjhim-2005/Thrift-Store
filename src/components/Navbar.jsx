@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import "./Navbar.css";
 
-export default function Navbar({ onLoginClick, onSearchClick }) {
+export default function Navbar({
+  onLoginClick, onSearchClick, onListItemClick,
+  user, onLogout, onCartClick, cartCount, onProfileClick,
+}) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -27,8 +30,46 @@ export default function Navbar({ onLoginClick, onSearchClick }) {
         <button className="btn-nav-search" onClick={onSearchClick} title="Search products">
           🔍 Search
         </button>
-        <button className="btn-nav-ghost" onClick={onLoginClick}>Log In</button>
-        <a href="#signup" className="btn-nav-fill">List Your Shop</a>
+
+        {user ? (
+          <>
+            {/* Cart button — only for buyers (or all logged-in users) */}
+            <button
+              className="btn-nav-cart"
+              onClick={onCartClick}
+              title="Your cart"
+              style={{ position: "relative" }}
+            >
+              🛒
+              {cartCount > 0 && (
+                <span className="nav-cart-badge">{cartCount > 9 ? "9+" : cartCount}</span>
+              )}
+            </button>
+
+            {user.role === "seller" && (
+              <button className="btn-nav-fill" onClick={onListItemClick}>
+                + List Item
+              </button>
+            )}
+
+            {/* User avatar / profile button */}
+            <button className="nav-user-btn" onClick={onProfileClick} title="My profile">
+              <div className="nav-avatar">
+                {user.avatarUrl
+                  ? <img src={user.avatarUrl} alt="avatar" />
+                  : (user.firstName?.[0] || "U").toUpperCase()}
+              </div>
+              <span className="nav-user-name-text">{user.firstName || user.email}</span>
+            </button>
+
+            <button className="btn-nav-ghost" onClick={onLogout}>Log Out</button>
+          </>
+        ) : (
+          <>
+            <button className="btn-nav-ghost" onClick={onLoginClick}>Log In</button>
+            <a href="#signup" className="btn-nav-fill">List Your Shop</a>
+          </>
+        )}
       </div>
     </nav>
   );

@@ -216,3 +216,30 @@
   align-self: flex-start;
 }
 .login-back-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
+
+/* ── Role Selector ── */
+.login-role-selector {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 24px;
+}
+.login-role-btn {
+  padding: 13px; background: white;
+  border: 1.5px solid rgba(45,36,22,0.12); border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  font-weight: 500; color: var(--soil); cursor: pointer;
+  transition: all 0.2s;
+}
+.login-role-btn:hover { border-color: var(--moss); }
+.login-role-btn.active {
+  border-color: var(--moss); background: rgba(92,107,58,0.08);
+  color: var(--moss); font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(92,107,58,0.1);
+}
+
+/* ── Messages ── */
+.login-msg {
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; margin-bottom: 16px;
+}
+.login-msg-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.login-msg-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }

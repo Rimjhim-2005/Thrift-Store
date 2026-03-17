@@ -61,3 +61,11 @@
 .btn-submit:disabled  { opacity: 1; }
 
 .form-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 14px; }
+
+/* ── Messages ── */
+.signup-msg {
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; margin-bottom: 16px;
+}
+.signup-msg-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.signup-msg-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
