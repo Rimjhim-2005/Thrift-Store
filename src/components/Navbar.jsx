@@ -3,7 +3,7 @@ import "./Navbar.css";
 
 export default function Navbar({
   onLoginClick, onSearchClick, onListItemClick,
-  user, onLogout, onCartClick, cartCount, onProfileClick,
+  user, onCartClick, cartCount, onProfileClick, onMessagesClick,
 }) {
   const [scrolled, setScrolled] = useState(false);
 
@@ -46,6 +46,10 @@ export default function Navbar({
               )}
             </button>
 
+            <button className="btn-nav-cart" onClick={onMessagesClick} title="Messages">
+              💬
+            </button>
+
             {user.role === "seller" && (
               <button className="btn-nav-fill" onClick={onListItemClick}>
                 + List Item
@@ -62,7 +66,6 @@ export default function Navbar({
               <span className="nav-user-name-text">{user.firstName || user.email}</span>
             </button>
 
-            <button className="btn-nav-ghost" onClick={onLogout}>Log Out</button>
           </>
         ) : (
           <>

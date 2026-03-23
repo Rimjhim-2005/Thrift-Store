@@ -1,0 +1,11 @@
+.account-page { padding: 110px 24px 24px; min-height: 100vh; background: #faf6ec; }
+.account-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.account-top button { border: 1px solid #7c6a50; background: transparent; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.account-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.account-tabs button { border: 1px solid #c5b99f; background: #fff; color: #2d2416; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.account-tabs button.active { background: #5c6b3a; color: #fff; border-color: #5c6b3a; }
+.card { background: #fff; border-radius: 12px; border: 1px solid rgba(45,36,22,.08); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card input { border: 1px solid #c5b99f; border-radius: 8px; padding: 10px; }
+.card button { border: none; border-radius: 8px; padding: 10px 12px; background: #5c6b3a; color: #fff; cursor: pointer; width: fit-content; }
+.order-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; border-bottom: 1px solid rgba(45,36,22,.08); padding: 8px 0; }
+.checkout-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }

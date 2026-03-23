@@ -9,7 +9,10 @@ const CONDITION_DESC = {
   Good: "Normal wear consistent with age.",
 };
 
-export default function ProductDetail({ product, onBackToShop, onRelatedProduct, onShopClick, cart, setCart }) {
+export default function ProductDetail({
+  product, onBackToShop, onRelatedProduct, onShopClick,
+  cart, onAddToCart, user, onUserUpdate, onMessageSeller, onBuyNow,
+}) {
   const shop = SHOPS.find((s) => s.id === product.shopId);
   const relatedProducts = PRODUCTS.filter(
     (p) => p.shopId === product.shopId && p.id !== product.id
@@ -27,13 +30,31 @@ export default function ProductDetail({ product, onBackToShop, onRelatedProduct,
   ];
 
   const handleAddToCart = () => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) return prev.map((i) => i.id === product.id ? { ...i, qty: i.qty + qty } : i);
-      return [...prev, { ...product, qty }];
+    onAddToCart({
+      ...product,
+      _id: String(product.id),
+      title: product.name,
+      name: product.name,
+      shopName: shop?.name || "",
+      qty,
     });
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2500);
+  };
+
+  const handleAddToWishlist = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/auth/wishlist/${product.id}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      onUserUpdate?.({ ...user, wishlist: data.wishlist || [] });
+    } catch (_) {
+      // no-op
+    }
   };
 
   const cartCount = cart.reduce((acc, i) => acc + i.qty, 0);
@@ -131,7 +152,7 @@ export default function ProductDetail({ product, onBackToShop, onRelatedProduct,
             <div className="pd-qty-row">
               <button className="pd-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
               <span className="pd-qty-num">{qty}</span>
-              <button className="pd-qty-btn" onClick={() => setQty(Math.min(1, qty + 1))}>+</button>
+              <button className="pd-qty-btn" onClick={() => setQty(Math.min(99, qty + 1))}>+</button>
               <span className="pd-qty-note">Only 1 available</span>
             </div>
           </div>
@@ -145,7 +166,9 @@ export default function ProductDetail({ product, onBackToShop, onRelatedProduct,
             >
               {addedToCart ? "✓ Added to Cart!" : "Add to Cart"}
             </button>
-            <button className="pd-wishlist-btn" title="Save to wishlist">♡</button>
+            <button className="pd-add-to-cart" onClick={() => onBuyNow?.(product)}>Buy Now</button>
+            <button className="pd-add-to-cart" onClick={() => onMessageSeller?.(shop, product)}>Message Shop Owner</button>
+            <button className="pd-wishlist-btn" title="Save to wishlist" onClick={handleAddToWishlist}>♡</button>
           </div>
 
           <p className="pd-shipping-note">

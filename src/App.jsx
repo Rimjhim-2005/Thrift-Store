@@ -12,23 +12,31 @@ import ProductDetail from "./components/ProductDetail";
 import SearchPage    from "./components/SearchPage";
 import ListItem      from "./components/ListItem";
 import Cart          from "./components/Cart";
-import UserProfile   from "./components/UserProfile";
+import AccountPage   from "./components/AccountPage";
+import MessagesPage  from "./components/MessagesPage";
+import { SHOPS } from "./data";
 
-// page: "home" | "login" | "shop" | "product" | "search" | "list-item"
+// page: "home" | "login" | "shop" | "product" | "search" | "list-item" | "messages" | "account"
 
 export default function App() {
   const [page, setPage]                   = useState("home");
   const [activeShop, setActiveShop]       = useState(null);
   const [activeProduct, setActiveProduct] = useState(null);
   const [user, setUser]                   = useState(null);
+  const API_BASE = "http://localhost:5000/api";
 
   // ---------- Auth persistence (Issue 1) ----------------------------------
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/auth/me", { credentials: "include" })
+    fetch(`${API_BASE}/auth/me`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.user) setUser(data.user); })
+      .then(async (data) => {
+        if (data?.user) {
+          setUser(data.user);
+          await loadCartFromServer();
+        }
+      })
       .catch(() => {})
       .finally(() => setAuthLoading(false));
   }, []);
@@ -38,27 +46,77 @@ export default function App() {
   const [cartItems, setCartItems]   = useState([]);
   const [cartOpen, setCartOpen]     = useState(false);
 
-  // ---------- Profile modal state ----------------------------------------
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [initialChatContext, setInitialChatContext] = useState(null);
+
+  const normalizeCartItem = (item) => {
+    const id = String(item?._id || item?.id || item?.productId || "").trim();
+    return {
+      _id: id,
+      id,
+      productId: id,
+      title: item?.title || item?.name || "",
+      name: item?.name || item?.title || "",
+      price: Number(item?.price) || 0,
+      qty: Math.max(1, Number(item?.qty || item?.quantity || 1)),
+      images: Array.isArray(item?.images) ? item.images : item?.image ? [item.image] : [],
+      shopName: item?.shopName || "",
+      palette: item?.palette || "",
+    };
+  };
+
+  const loadCartFromServer = async () => {
+    const res = await fetch(`${API_BASE}/auth/cart`, { credentials: "include" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverCart = Array.isArray(data?.cart) ? data.cart.map(normalizeCartItem) : [];
+    setCartItems(serverCart);
+  };
+
+  const syncCartToServer = async (items) => {
+    if (!user) return;
+    try {
+      await fetch(`${API_BASE}/auth/cart`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          cart: items.map((item) => ({
+            productId: String(item._id),
+            name: item.title || item.name || "",
+            price: Number(item.price) || 0,
+            image: item.images?.[0] || "",
+            shopName: item.shopName || "",
+            quantity: Number(item.qty) || 1,
+          })),
+        }),
+      });
+    } catch (_) {
+      // no-op: keep UI responsive even if sync fails
+    }
+  };
 
   // ---------- Navigation helpers -----------------------------------------
   const goHome     = ()     => { setPage("home");      window.scrollTo(0, 0); };
   const goLogin    = ()     => { setPage("login");     window.scrollTo(0, 0); };
   const goSearch   = ()     => { setPage("search");    window.scrollTo(0, 0); };
   const goListItem = ()     => { setPage("list-item"); window.scrollTo(0, 0); };
+  const goMessages = (context = null) => { setInitialChatContext(context); setPage("messages"); window.scrollTo(0, 0); };
+  const goAccount  = ()     => { setPage("account");   window.scrollTo(0, 0); };
   const goShop     = (shop) => { setActiveShop(shop);    setPage("shop");    window.scrollTo(0, 0); };
   const goProduct  = (prod) => { setActiveProduct(prod); setPage("product"); window.scrollTo(0, 0); };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    loadCartFromServer().catch(() => {});
     setPage("home");
     window.scrollTo(0, 0);
   };
 
   const handleLogout = async () => {
-    try { await fetch("http://localhost:5000/api/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+    try { await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }); } catch {}
     setUser(null);
     setCartItems([]);
+    setInitialChatContext(null);
     setPage("home");
     window.scrollTo(0, 0);
   };
@@ -66,24 +124,111 @@ export default function App() {
   // ---------- Cart helpers -----------------------------------------------
   const addToCart = (product) => {
     setCartItems(prev => {
-      const existing = prev.find(i => i._id === product._id);
-      if (existing) return prev.map(i => i._id === product._id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { ...product, qty: 1 }];
+      const normalized = normalizeCartItem(product);
+      const existing = prev.find(i => i._id === normalized._id);
+      const next = existing
+        ? prev.map(i => i._id === normalized._id ? { ...i, qty: i.qty + 1 } : i)
+        : [...prev, { ...normalized, qty: normalized.qty || 1 }];
+      syncCartToServer(next);
+      return next;
     });
     setCartOpen(true); // open drawer when item added
   };
 
-  const removeFromCart = (id) => setCartItems(prev => prev.filter(i => i._id !== id));
+  const removeFromCart = (id) => setCartItems(prev => {
+    const next = prev.filter(i => i._id !== String(id));
+    syncCartToServer(next);
+    return next;
+  });
 
   const changeQty = (id, qty) => {
     if (qty < 1) return;
-    setCartItems(prev => prev.map(i => i._id === id ? { ...i, qty } : i));
+    setCartItems(prev => {
+      const next = prev.map(i => i._id === String(id) ? { ...i, qty } : i);
+      syncCartToServer(next);
+      return next;
+    });
   };
 
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
 
   // ---------- Profile helper ---------------------------------------------
   const handleProfileUpdate = (updatedUser) => setUser(updatedUser);
+
+  const handleMessageSeller = async (shop, product) => {
+    if (!user) { setPage("login"); return; }
+    const context = {
+      sellerId: `shop-${shop?.id || "unknown"}`,
+      shopName: shop?.name || "",
+      sellerEmail: shop?.email || "",
+      productId: String(product?.id || ""),
+      productName: product?.name || shop?.name || "Shop inquiry",
+      productPrice: Number(product?.price) || 0,
+      createIntentCard: !!product,
+    };
+    goMessages(context);
+  };
+
+  const handleBuyNow = async (product) => {
+    if (!user) { setPage("login"); return; }
+    const shopName = activeShop?.name || "";
+    const context = {
+      sellerId: `shop-${activeShop?.id || "unknown"}`,
+      shopName,
+      sellerEmail: activeShop?.email || "",
+      productId: String(product?.id || ""),
+      productName: product?.name || "Item",
+      productPrice: Number(product?.price) || 0,
+      createIntentCard: true,
+    };
+    addToCart({ ...product, _id: String(product.id), title: product.name, shopName });
+    goMessages(context);
+  };
+
+  const handleCheckout = async () => {
+    if (!user || !cartItems.length) return;
+    const first = cartItems[0];
+    const matchedShop = SHOPS.find((s) => s.name === first.shopName);
+    const payload = {
+      shopId: first.shopName || "",
+      sellerEmail: matchedShop?.email || "",
+      buyerContactInfo: {
+        name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+        email: user.email || "",
+        phone: user.phone || "",
+        address: "",
+      },
+      items: cartItems.map((i) => ({
+        productId: i._id || i.id,
+        name: i.title || i.name,
+        price: i.price,
+        quantity: i.qty,
+        image: i.images?.[0] || "",
+        shopName: i.shopName || "",
+      })),
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return;
+      setCartItems([]);
+      const context = {
+        sellerId: first.shopName ? `shop-${first.shopName}` : "shop-unknown",
+        shopName: first.shopName || "",
+        sellerEmail: matchedShop?.email || "",
+        productId: first._id || first.id || "",
+        productName: first.title || first.name || "Item",
+        productPrice: Number(first.price) || 0,
+        createIntentCard: true,
+      };
+      goMessages(context);
+    } catch (_) {}
+  };
 
   // ---------- Auth loading spinner ---------------------------------------
   if (authLoading) {
@@ -118,6 +263,7 @@ export default function App() {
         shop={activeShop}
         onBack={goHome}
         onProductClick={goProduct}
+        onMessageSeller={handleMessageSeller}
       />
     );
   } else if (page === "product") {
@@ -128,8 +274,33 @@ export default function App() {
         onRelatedProduct={goProduct}
         onShopClick={goShop}
         cart={cartItems}
-        setCart={setCartItems}
         onAddToCart={addToCart}
+        user={user}
+        onUserUpdate={setUser}
+        onMessageSeller={handleMessageSeller}
+        onBuyNow={handleBuyNow}
+      />
+    );
+  } else if (page === "messages") {
+    pageContent = (
+      <MessagesPage
+        user={user}
+        initialChatContext={initialChatContext}
+        onBack={goHome}
+      />
+    );
+  } else if (page === "account") {
+    pageContent = (
+      <AccountPage
+        user={user}
+        cartItems={cartItems}
+        onQtyChange={changeQty}
+        onRemoveFromCart={removeFromCart}
+        onBack={goHome}
+        onUserUpdate={handleProfileUpdate}
+        onCheckout={handleCheckout}
+        onOpenMessages={() => goMessages()}
+        onLogout={handleLogout}
       />
     );
   } else {
@@ -141,10 +312,10 @@ export default function App() {
           onSearchClick={goSearch}
           onListItemClick={goListItem}
           user={user}
-          onLogout={handleLogout}
           cartCount={cartCount}
           onCartClick={() => setCartOpen(true)}
-          onProfileClick={() => setProfileOpen(true)}
+          onProfileClick={goAccount}
+          onMessagesClick={() => goMessages()}
         />
         <Hero onLoginClick={goLogin} />
         <HowItWorks />
@@ -169,19 +340,8 @@ export default function App() {
         cartItems={cartItems}
         onRemove={removeFromCart}
         onQtyChange={changeQty}
+        onCheckout={handleCheckout}
       />
-
-      {/* User profile modal */}
-      {profileOpen && user && (
-        <UserProfile
-          user={user}
-          onClose={() => setProfileOpen(false)}
-          onUpdate={handleProfileUpdate}
-          cartItems={cartItems}
-          onRemoveFromCart={removeFromCart}
-          onQtyChange={changeQty}
-        />
-      )}
     </>
   );
 }

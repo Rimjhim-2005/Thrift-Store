@@ -11,7 +11,8 @@ const userSchema = new mongoose.Schema(
     phone:      { type: String, default: "" },
     bio:        { type: String, default: "" },
     avatarUrl:  { type: String, default: "" },
-    wishlist:   [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
+    // Store wishlist as product IDs to support both seeded/demo and DB-backed items.
+    wishlist:   [{ type: String }],
   },
   { timestamps: true }
 );

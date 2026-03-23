@@ -6,7 +6,7 @@ const CONDITIONS = { Excellent: 5, "Very Good": 4, Good: 3 };
 
 const CATEGORIES = ["All", "Tops", "Bottoms", "Outerwear", "Dresses", "Sneakers", "Accessories"];
 
-export default function ShopDetail({ shop, onBack, onProductClick }) {
+export default function ShopDetail({ shop, onBack, onProductClick, onMessageSeller }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [sort, setSort] = useState("default");
 
@@ -120,7 +120,7 @@ export default function ShopDetail({ shop, onBack, onProductClick }) {
             </div>
           </div>
 
-          <button className="sd-contact-btn">Message Shop Owner</button>
+          <button className="sd-contact-btn" onClick={() => onMessageSeller?.(shop, null)}>Message Shop Owner</button>
         </aside>
 
         {/* Products grid */}

@@ -4,6 +4,7 @@ const nodemailer = require("nodemailer");
 const User       = require("../models/User");
 const Seller     = require("../models/Seller");
 const Buyer      = require("../models/Buyer");
+const Order      = require("../models/Order");
 
 const SITE_NAME = "Thriftly";
 const SITE_URL  = "http://localhost:5173";
@@ -56,6 +57,68 @@ async function sendWelcomeEmail(toEmail, userName) {
     console.log(`✉️  Welcome email sent to ${toEmail}`);
   } catch (err) {
     console.error("Welcome email failed:", err.message);
+  }
+}
+
+function cleanText(value = "") {
+  return String(value).replace(/[<>]/g, "").trim();
+}
+
+function parseCartItem(item = {}) {
+  return {
+    itemId: cleanText(item.productId || item._id || item.itemId || item.id || ""),
+    name: cleanText(item.name || item.title || "Item"),
+    price: Number(item.price) || 0,
+    quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+    image: cleanText(item.image || item.images?.[0] || ""),
+    shopName: cleanText(item.shopName || ""),
+  };
+}
+
+async function sendOrderEmailToSeller({ sellerEmail, buyerName, buyerContactInfo, items, totalPrice }) {
+  if (!sellerEmail) return;
+  const rows = items
+    .map((it) => `<li>${it.name} x${it.quantity} - P${(it.price * it.quantity).toLocaleString()}</li>`)
+    .join("");
+
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2d2416;">
+      <h2>New Checkout Order</h2>
+      <p><strong>${buyerName}</strong> has placed an order and wants to coordinate the sale.</p>
+      <p><strong>Buyer Contact</strong><br/>
+      Email: ${buyerContactInfo.email || "-"}<br/>
+      Phone: ${buyerContactInfo.phone || "-"}<br/>
+      Address: ${buyerContactInfo.address || "-"}</p>
+      <p><strong>Items</strong></p>
+      <ul>${rows}</ul>
+      <p><strong>Total:</strong> P${Number(totalPrice || 0).toLocaleString()}</p>
+      <p>Please log in to Thriftly to coordinate fulfillment.</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"${SITE_NAME}" <${process.env.EMAIL_USER}>`,
+      to: sellerEmail,
+      subject: "New buyer checkout on Thriftly",
+      html,
+    });
+  } catch (err) {
+    console.error("Checkout seller email failed:", err.message);
+  }
+}
+
+async function sendPurchaseIntentEmailToSeller({ sellerEmail, buyerUsername, itemName }) {
+  if (!sellerEmail) return;
+  try {
+    await transporter.sendMail({
+      from: `"${SITE_NAME}" <${process.env.EMAIL_USER}>`,
+      to: sellerEmail,
+      subject: "Buyer purchase intent",
+      text: `@${buyerUsername} wants to buy ${itemName}. Please log in to the website to coordinate the sale.`,
+    });
+  } catch (err) {
+    console.error("Purchase intent email failed:", err.message);
   }
 }
 
@@ -174,7 +237,7 @@ router.get("/me", async (req, res) => {
       id: user._id, firstName: user.firstName, lastName: user.lastName,
       email: user.email, role: user.role,
       phone: user.phone || "", bio: user.bio || "", avatarUrl: user.avatarUrl || "",
-      wishlist: user.wishlist || [],
+      wishlist: (user.wishlist || []).map((id) => String(id)),
     };
 
     if (user.role === "seller") {
@@ -230,8 +293,9 @@ router.post("/wishlist/:itemId", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
   try {
     const user = await User.findById(req.session.userId);
-    if (!user.wishlist.includes(req.params.itemId)) {
-      user.wishlist.push(req.params.itemId);
+    const itemId = String(req.params.itemId);
+    if (!user.wishlist.some((id) => String(id) === itemId)) {
+      user.wishlist.push(itemId);
       await user.save();
     }
     return res.status(200).json({ message: "Added to wishlist.", wishlist: user.wishlist });
@@ -257,11 +321,151 @@ router.delete("/wishlist/:itemId", async (req, res) => {
 router.get("/orders", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
   try {
-    const Order = require("../models/Order");
     const orders = await Order.find({ userId: req.session.userId }).sort({ createdAt: -1 });
     return res.status(200).json({ orders });
   } catch (err) {
     console.error("Orders fetch error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── POST /api/auth/checkout ────────────────────────────────
+router.post("/checkout", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    const buyer = await Buyer.findOne({ userId: req.session.userId });
+    const bodyItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const sourceItems = bodyItems.length ? bodyItems : (buyer?.cart || []);
+    const items = sourceItems.map(parseCartItem).filter((i) => i.itemId || i.name);
+
+    if (!items.length) return res.status(400).json({ message: "Cart is empty." });
+
+    const buyerContactInfo = {
+      name: cleanText(req.body?.buyerContactInfo?.name),
+      email: cleanText(req.body?.buyerContactInfo?.email),
+      phone: cleanText(req.body?.buyerContactInfo?.phone),
+      address: cleanText(req.body?.buyerContactInfo?.address),
+    };
+
+    const totalPrice = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const shopId = cleanText(req.body?.shopId || items[0]?.shopName || "");
+    const sellerEmailFallback = cleanText(req.body?.sellerEmail || "");
+
+    const order = await Order.create({
+      userId: req.session.userId,
+      shopId,
+      buyerContactInfo,
+      items: items.map((i) => ({
+        itemId: i.itemId,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        image: i.image,
+      })),
+      totalPrice,
+      total: totalPrice,
+      status: "pending",
+    });
+
+    if (buyer) {
+      buyer.cart = [];
+      await buyer.save();
+    }
+
+    const user = await User.findById(req.session.userId);
+    const sellerProfile = await Seller.findOne({ shopName: shopId });
+    let sellerUser = null;
+    if (sellerProfile) sellerUser = await User.findById(sellerProfile.userId);
+
+    sendOrderEmailToSeller({
+      sellerEmail: sellerUser?.email || sellerEmailFallback,
+      buyerName: `${user?.firstName || "Buyer"} ${user?.lastName || ""}`.trim(),
+      buyerContactInfo,
+      items,
+      totalPrice,
+    });
+
+    return res.status(201).json({ message: "Checkout complete.", order });
+  } catch (err) {
+    console.error("Checkout error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── POST /api/auth/purchase-intent-email ───────────────────
+router.post("/purchase-intent-email", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    let sellerId = cleanText(req.body?.sellerId);
+    const shopName = cleanText(req.body?.shopName);
+    const sellerEmailFallback = cleanText(req.body?.sellerEmail);
+    const itemName = cleanText(req.body?.itemName || "an item");
+    if ((!sellerId || sellerId.startsWith("shop-")) && shopName) {
+      const seller = await Seller.findOne({ shopName });
+      if (seller?.userId) sellerId = String(seller.userId);
+    }
+    if ((!sellerId || sellerId.startsWith("shop-")) && !sellerEmailFallback) {
+      return res.status(400).json({ message: "sellerId required." });
+    }
+
+    const buyerUser = await User.findById(req.session.userId);
+    const sellerUser = await User.findById(sellerId);
+    sendPurchaseIntentEmailToSeller({
+      sellerEmail: sellerUser?.email || sellerEmailFallback,
+      buyerUsername: buyerUser?.firstName || buyerUser?.email || "buyer",
+      itemName,
+    });
+
+    return res.status(200).json({ message: "Seller email notification queued." });
+  } catch (err) {
+    console.error("Purchase intent email route error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── GET /api/auth/cart ─────────────────────────────────────
+router.get("/cart", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    let buyer = await Buyer.findOne({ userId: req.session.userId });
+    if (!buyer) {
+      buyer = await Buyer.create({ userId: req.session.userId, cart: [] });
+    }
+    return res.status(200).json({ cart: buyer.cart || [] });
+  } catch (err) {
+    console.error("Cart fetch error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── PUT /api/auth/cart ─────────────────────────────────────
+router.put("/cart", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    const payload = Array.isArray(req.body?.cart) ? req.body.cart : [];
+
+    const normalized = payload
+      .map((item) => ({
+        productId: String(item.productId || item._id || item.id || "").trim(),
+        name: String(item.name || item.title || "").trim(),
+        price: Number(item.price) || 0,
+        image: String(item.image || item.images?.[0] || "").trim(),
+        shopName: String(item.shopName || "").trim(),
+        quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+      }))
+      .filter((item) => item.productId);
+
+    let buyer = await Buyer.findOne({ userId: req.session.userId });
+    if (!buyer) {
+      buyer = new Buyer({ userId: req.session.userId, cart: normalized });
+    } else {
+      buyer.cart = normalized;
+    }
+
+    await buyer.save();
+    return res.status(200).json({ message: "Cart updated.", cart: buyer.cart });
+  } catch (err) {
+    console.error("Cart update error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 });

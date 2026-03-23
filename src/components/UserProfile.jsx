@@ -233,7 +233,7 @@ export default function UserProfile({
                   <div className="profile-section-title">Cart Items ({cartItems.length})</div>
                   <div className="profile-item-list">
                     {cartItems.map(item => (
-                      <div key={item._id} className="profile-item-card">
+                      <div key={item._id || item.id} className="profile-item-card">
                         <div className="profile-item-swatch" style={{ background: item.palette || "#e5e0d5" }}>
                           {item.images?.[0] && <img src={item.images[0]} alt={item.title || item.name} />}
                         </div>
@@ -242,12 +242,12 @@ export default function UserProfile({
                           <p className="profile-item-shop">{item.shopName || ""}</p>
                           <p className="profile-item-price">₱{(item.price * item.qty).toLocaleString()}</p>
                           <div className="profile-qty-row">
-                            <button className="profile-qty-btn" disabled={item.qty <= 1} onClick={() => onQtyChange(item._id, item.qty - 1)}>−</button>
+                            <button className="profile-qty-btn" disabled={item.qty <= 1} onClick={() => onQtyChange(item._id || item.id, item.qty - 1)}>−</button>
                             <span className="profile-qty-val">{item.qty}</span>
-                            <button className="profile-qty-btn" onClick={() => onQtyChange(item._id, item.qty + 1)}>+</button>
+                            <button className="profile-qty-btn" onClick={() => onQtyChange(item._id || item.id, item.qty + 1)}>+</button>
                           </div>
                         </div>
-                        <button className="profile-item-remove" title="Remove" onClick={() => onRemoveFromCart(item._id)}>🗑</button>
+                        <button className="profile-item-remove" title="Remove" onClick={() => onRemoveFromCart(item._id || item.id)}>🗑</button>
                       </div>
                     ))}
                   </div>

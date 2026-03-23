@@ -15,6 +15,35 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
+async function sendApprovedSellerEmail({ email, firstName, shopName, tempPassword }) {
+  try {
+    await transporter.sendMail({
+      from: `"${SITE_NAME}" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `Your shop "${shopName}" is approved`,
+      html: `
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;padding:40px 24px;color:#2d2416;">
+          <h2 style="color:#5c6b3a;margin:0 0 8px;">Your shop has been approved</h2>
+          <p style="font-size:15px;line-height:1.7;color:#4a3f2f;">
+            Hi ${firstName}, your shop <strong>"${shopName}"</strong> is approved and now live on Thriftly.
+          </p>
+          <p style="font-size:15px;line-height:1.7;color:#4a3f2f;">Login credentials:</p>
+          <div style="background:#f5f0e8;border-radius:8px;padding:16px 20px;margin:16px 0;">
+            <p style="margin:4px 0;font-size:14px;"><strong>Email:</strong> ${email}</p>
+            <p style="margin:4px 0;font-size:14px;"><strong>Temporary Password:</strong> <code style="background:#fff;padding:2px 6px;border-radius:4px;">${tempPassword}</code></p>
+          </div>
+          <p style="font-size:14px;color:#c0392b;">Please change your password after first login.</p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="http://localhost:5173" style="display:inline-block;padding:14px 32px;background:#5c6b3a;color:#faf6ec;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Login to Thriftly</a>
+          </div>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("Seller approval email failed:", err.message);
+  }
+}
+
 // ────────────────────────────────────────────────────────────
 // POST /api/shop/request  — new shop application from homepage form
 // ────────────────────────────────────────────────────────────
@@ -156,37 +185,12 @@ router.get("/approve/:token", async (req, res) => {
     shopReq.status = "approved";
     await shopReq.save();
 
-    // ── Email the applicant ─────────────────────────────────
-    await transporter.sendMail({
-      from:    `"${SITE_NAME}" <${process.env.EMAIL_USER}>`,
-      to:      shopReq.email,
-      subject: `🎉 Your shop "${shopReq.shopName}" is approved on ${SITE_NAME}!`,
-      html: `
-        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;padding:40px 24px;color:#2d2416;">
-          <h2 style="color:#5c6b3a;margin:0 0 8px;">You're approved! 🎉</h2>
-          <p style="font-size:15px;line-height:1.7;color:#4a3f2f;">
-            Hi ${shopReq.firstName}, great news — your shop <strong>"${shopReq.shopName}"</strong> 
-            has been reviewed and approved on <strong>${SITE_NAME}</strong>! Your shop is ready to go.
-          </p>
-          <p style="font-size:15px;line-height:1.7;color:#4a3f2f;">
-            Here are your login details:
-          </p>
-          <div style="background:#f5f0e8;border-radius:8px;padding:16px 20px;margin:16px 0;">
-            <p style="margin:4px 0;font-size:14px;"><strong>Email:</strong> ${shopReq.email}</p>
-            <p style="margin:4px 0;font-size:14px;"><strong>Temporary Password:</strong> <code style="background:#fff;padding:2px 6px;border-radius:4px;">${tempPassword}</code></p>
-          </div>
-          <p style="font-size:14px;color:#c0392b;">⚠️ Please change your password after logging in for the first time.</p>
-          <div style="text-align:center;margin:32px 0;">
-            <a href="http://localhost:5173" 
-               style="display:inline-block;padding:14px 32px;background:#5c6b3a;color:#faf6ec;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
-              Log In &amp; Start Selling →
-            </a>
-          </div>
-          <p style="font-size:15px;line-height:1.7;color:#4a3f2f;">
-            Cheers,<br/>The ${SITE_NAME} Team
-          </p>
-        </div>
-      `,
+    // Send seller approval email asynchronously so approval never fails due to mail issues.
+    sendApprovedSellerEmail({
+      email: shopReq.email,
+      firstName: shopReq.firstName,
+      shopName: shopReq.shopName,
+      tempPassword,
     });
 
     return res.status(200).send(page(

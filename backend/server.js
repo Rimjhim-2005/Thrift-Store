@@ -1,19 +1,54 @@
 const express = require("express");
+const http = require("http");
 const mongoose = require("mongoose");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const { Server } = require("socket.io");
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
 const shopRoutes = require("./routes/shop");
 const itemsRoutes = require("./routes/items");
+const chatRoutes = require("./routes/chat");
 const path = require("path");
 
 const app = express();
+const httpServer = http.createServer(app);
 
 // ── Middleware ─────────────────────────────────────────────
 app.use(express.json());
+app.use(helmet());
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+
+// Basic input sanitization to reduce XSS/NoSQL injection vectors.
+app.use((req, _res, next) => {
+  const cleanse = (v) => {
+    if (Array.isArray(v)) return v.map(cleanse);
+    if (v && typeof v === "object") {
+      const out = {};
+      for (const [k, val] of Object.entries(v)) {
+        if (k.startsWith("$") || k.includes(".")) continue;
+        out[k] = cleanse(val);
+      }
+      return out;
+    }
+    if (typeof v === "string") return v.replace(/[<>]/g, "").trim();
+    return v;
+  };
+  if (req.body) req.body = cleanse(req.body);
+  if (req.query) req.query = cleanse(req.query);
+  next();
+});
 
 app.use(
   cors({
@@ -48,6 +83,26 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/shop", shopRoutes);
 app.use("/api/items", itemsRoutes);
+app.use("/api/chat", chatRoutes);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  },
+});
+
+app.locals.io = io;
+
+io.on("connection", (socket) => {
+  socket.on("chat:join-user", (userId) => {
+    if (userId) socket.join(`user:${userId}`);
+  });
+
+  socket.on("chat:join-conversation", (conversationId) => {
+    if (conversationId) socket.join(`conversation:${conversationId}`);
+  });
+});
 
 // Health check
 app.get("/", (req, res) => res.json({ message: "Thriftly API is running." }));
@@ -57,7 +112,7 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ Connected to MongoDB");
-    app.listen(5000, () => console.log("🚀 Server running on http://localhost:5000"));
+    httpServer.listen(5000, () => console.log("🚀 Server running on http://localhost:5000"));
   })
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);

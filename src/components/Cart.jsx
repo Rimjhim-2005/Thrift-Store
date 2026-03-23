@@ -1,6 +1,6 @@
 import "./Cart.css";
 
-export default function Cart({ isOpen, onClose, cartItems, onRemove, onQtyChange }) {
+export default function Cart({ isOpen, onClose, cartItems, onRemove, onQtyChange, onCheckout }) {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   return (
@@ -24,30 +24,30 @@ export default function Cart({ isOpen, onClose, cartItems, onRemove, onQtyChange
           <>
             <ul className="cart-list">
               {cartItems.map((item) => (
-                <li key={item._id} className="cart-item">
+                <li key={item._id || item.id} className="cart-item">
                   {item.images?.[0] && (
-                    <img src={item.images[0]} alt={item.title} className="cart-item-img" />
+                    <img src={item.images[0]} alt={item.title || item.name} className="cart-item-img" />
                   )}
                   <div className="cart-item-info">
-                    <p className="cart-item-title">{item.title}</p>
+                    <p className="cart-item-title">{item.title || item.name}</p>
                     <p className="cart-item-shop">{item.shopName || ""}</p>
                     <p className="cart-item-price">₱{(item.price * item.qty).toLocaleString()}</p>
                     <div className="cart-qty-row">
                       <button
                         className="cart-qty-btn"
-                        onClick={() => onQtyChange(item._id, item.qty - 1)}
+                        onClick={() => onQtyChange(item._id || item.id, item.qty - 1)}
                         disabled={item.qty <= 1}
                       >−</button>
                       <span className="cart-qty-val">{item.qty}</span>
                       <button
                         className="cart-qty-btn"
-                        onClick={() => onQtyChange(item._id, item.qty + 1)}
+                        onClick={() => onQtyChange(item._id || item.id, item.qty + 1)}
                       >+</button>
                     </div>
                   </div>
                   <button
                     className="cart-remove"
-                    onClick={() => onRemove(item._id)}
+                    onClick={() => onRemove(item._id || item.id)}
                     title="Remove item"
                   >🗑</button>
                 </li>
@@ -59,7 +59,7 @@ export default function Cart({ isOpen, onClose, cartItems, onRemove, onQtyChange
                 <span>Total</span>
                 <span className="cart-total-amt">₱{total.toLocaleString()}</span>
               </div>
-              <button className="cart-checkout-btn">Proceed to Checkout →</button>
+              <button className="cart-checkout-btn" onClick={onCheckout}>Proceed to Checkout →</button>
               <p className="cart-note">Checkout coming soon — items are saved for your session.</p>
             </div>
           </>
