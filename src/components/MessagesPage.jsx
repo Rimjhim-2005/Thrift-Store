@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./MessagesPage.css";
 
@@ -9,6 +9,8 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [senderNames, setSenderNames] = useState({}); // Phase 5: Cache sender names
+  const messagesEndRef = useRef(null);
 
   const socket = useMemo(() => io("http://localhost:5000", { withCredentials: true }), []);
 
@@ -17,6 +19,37 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
   useEffect(() => {
     socket.emit("chat:join-user", user?.id);
   }, [socket, user?.id]);
+
+  // Phase 5: Resolve sender name from ID
+  const resolveSenderName = async (senderId, conversation) => {
+    if (senderNames[senderId]) return senderNames[senderId];
+    
+    // Check if sender is conversation buyer or seller
+    if (senderId === conversation?.buyerId) {
+      const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        const name = `${data.user?.firstName || "Buyer"} ${data.user?.lastName || ""}`.trim();
+        setSenderNames(prev => ({ ...prev, [senderId]: name }));
+        return name;
+      }
+    } else if (senderId === conversation?.sellerId) {
+      // For seller, they're the shop owner
+      return conversation?.shopName || "Shop Owner";
+    }
+    return "User";
+  };
+
+  useEffect(() => {
+    // Phase 5: Pre-fetch sender names for current messages
+    if (activeConversation && messages.length) {
+      messages.forEach(m => {
+        if (!senderNames[m.senderId]) {
+          resolveSenderName(m.senderId, activeConversation).catch(() => {});
+        }
+      });
+    }
+  }, [activeConversation?._id, messages.length, senderNames]);
 
   const loadConversations = async () => {
     const res = await fetch(`${API_BASE}/chat/conversations`, { credentials: "include" });
@@ -52,7 +85,6 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          buyerId: user?.id,
           sellerId: initialChatContext.sellerId,
           shopName: initialChatContext.shopName || "",
           sellerEmail: initialChatContext.sellerEmail || "",
@@ -60,6 +92,10 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
           productName: initialChatContext.productName || "",
           productPrice: Number(initialChatContext.productPrice) || 0,
           createIntentCard: !!initialChatContext.createIntentCard,
+          createCheckoutSummary: !!initialChatContext.createCheckoutSummary,
+          checkoutItems: initialChatContext.checkoutItems || [],
+          checkoutTotal: Number(initialChatContext.checkoutTotal) || 0,
+          orderId: initialChatContext.orderId || "",
         }),
       });
       if (!res.ok) return;
@@ -73,7 +109,11 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
   useEffect(() => {
     const onMessage = (message) => {
       if (message.conversationId === activeConversation?._id) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          if (prev.some((m) => m._id === message._id)) return prev;
+          const stripped = prev.filter((m) => !(m.pending && m.text === message.text && m.senderId === message.senderId));
+          return [...stripped, message];
+        });
       }
     };
     const onConversationUpdated = () => loadConversations().catch(() => {});
@@ -85,16 +125,40 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
     };
   }, [socket, activeConversation?._id]);
 
+  // Auto-scroll to the newest bubble whenever messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const sendMessage = async () => {
     if (!activeConversation?._id || !draft.trim()) return;
     const text = draft.trim();
     setDraft("");
-    await fetch(`${API_BASE}/chat/conversations/${activeConversation._id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ text }),
-    });
+    const tempId = `pending-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { _id: tempId, text, senderId: user?.id, senderRole: "buyer", pending: true },
+    ]);
+    try {
+      const res = await fetch(`${API_BASE}/chat/conversations/${activeConversation._id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.message) {
+        setMessages((prev) => {
+          const without = prev.filter((m) => m._id !== tempId);
+          if (without.some((m) => m._id === data.message._id)) return without;
+          return [...without, data.message];
+        });
+      } else {
+        setMessages((prev) => prev.filter((m) => m._id !== tempId));
+      }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m._id !== tempId));
+    }
   };
 
   return (
@@ -106,8 +170,8 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
       <div className="messages-layout">
         <aside className="messages-list">
           {conversations.map((c) => (
-            <button key={c._id} className={`conv-item ${activeConversation?._id === c._id ? "active" : ""}`} onClick={() => loadMessages(c._id)}>
-              <div className="conv-title">{c.productName || "Conversation"}</div>
+            <button key={c._id} type="button" className={`conv-item ${activeConversation?._id === c._id ? "active" : ""}`} onClick={() => loadMessages(c._id)}>
+              <div className="conv-title">{c.shopName || c.productName || "Conversation"}</div>
               <div className="conv-sub">{c.lastMessage || "No messages yet"}</div>
             </button>
           ))}
@@ -116,18 +180,51 @@ export default function MessagesPage({ user, initialChatContext, onBack }) {
           {activeConversation ? (
             <>
               <div className="chat-header">
-                <strong>{activeConversation.productName || "Chat"}</strong>
-                <span>P{Number(activeConversation.productPrice || 0).toLocaleString()}</span>
+                <div>
+                  <strong>{activeConversation.shopName || activeConversation.productName || "Chat"}</strong>
+                  {activeConversation.shopName && activeConversation.productName && (
+                    <div className="chat-header-sub">{activeConversation.productName}</div>
+                  )}
+                </div>
+                <span>₹{Number(activeConversation.productPrice || 0).toLocaleString()}</span>
               </div>
               <div className="chat-body">
                 {messages.map((m) => (
-                  <div key={m._id} className={`bubble ${m.senderId === user?.id ? "mine" : ""}`}>
+                  <div key={m._id} className={`bubble ${m.senderId === user?.id ? "mine" : ""} ${m.pending ? "pending" : ""}`}>
+                    {/* Phase 5: Show sender identity unless it's the user's own message */}
+                    {m.senderId !== user?.id && (
+                      <div style={{ fontSize: "0.85em", fontWeight: "600", marginBottom: "4px", opacity: 0.7 }}>
+                        {senderNames[m.senderId] || "User"}
+                      </div>
+                    )}
                     <div>{m.text}</div>
+                    {/* Checkout summary card */}
+                    {m.meta?.cardType === "checkout_summary" && m.meta?.lineItems?.length > 0 && (
+                      <ul className="bubble-cart-list">
+                        {m.meta.lineItems.map((line, idx) => (
+                          <li key={idx}>
+                            {line.name} ×{line.quantity} — ₹{(Number(line.price) * line.quantity).toLocaleString()}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {/* Phase 2: Purchase intent card */}
+                    {m.meta?.cardType === "purchase_intent" && (
+                      <div style={{ marginTop: "8px", padding: "8px", backgroundColor: "#f5f5f5", borderRadius: "6px", fontSize: "0.9em" }}>
+                        <strong>Item:</strong> {m.meta.productName || "Item"}<br/>
+                        <strong>Price:</strong> ₹{Number(m.meta.productPrice || 0).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
               <div className="chat-input">
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type a message..." />
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                  placeholder="Type a message…"
+                />
                 <button onClick={sendMessage}>Send</button>
               </div>
             </>

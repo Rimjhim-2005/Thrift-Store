@@ -1,0 +1,99 @@
+.icm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(26, 21, 16, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.icm-panel {
+  width: min(520px, 100%);
+  max-height: min(92vh, 720px);
+  background: #faf8f5;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(229, 224, 213, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.icm-title {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.35rem;
+  color: #2d2416;
+}
+
+.icm-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b5f52;
+}
+
+.icm-crop-wrap {
+  position: relative;
+  width: 100%;
+  height: min(320px, 50vh);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #1a1510;
+}
+
+.icm-zoom-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.icm-zoom-label input {
+  width: 100%;
+  accent-color: #5c6b3a;
+}
+
+.icm-err {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
+.icm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.icm-btn {
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+
+.icm-btn.ghost {
+  background: transparent;
+  color: #5c4328;
+  border: 1px solid rgba(92, 67, 40, 0.35);
+}
+
+.icm-btn.primary {
+  background: #5c6b3a;
+  color: #faf8f5;
+}
+
+.icm-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

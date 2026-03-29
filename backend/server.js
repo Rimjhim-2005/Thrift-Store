@@ -11,8 +11,10 @@ require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
 const shopRoutes = require("./routes/shop");
+const shopsRoutes = require("./routes/shops");
 const itemsRoutes = require("./routes/items");
 const chatRoutes = require("./routes/chat");
+const analyticsRoutes = require("./routes/analytics");
 const path = require("path");
 
 const app = express();
@@ -20,7 +22,12 @@ const httpServer = http.createServer(app);
 
 // ── Middleware ─────────────────────────────────────────────
 app.use(express.json());
-app.use(helmet());
+// Allow <img> / fetch from Vite (different port) to load /uploads/* on this API.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -82,8 +89,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ── Routes ─────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/shop", shopRoutes);
+app.use("/api/shops", shopsRoutes);
 app.use("/api/items", itemsRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 const io = new Server(httpServer, {
   cors: {

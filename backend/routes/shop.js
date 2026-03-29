@@ -1,14 +1,72 @@
 const express    = require("express");
 const router     = express.Router();
 const crypto     = require("crypto");
+const path       = require("path");
+const fs         = require("fs");
+const multer     = require("multer");
 const nodemailer = require("nodemailer");
 const ShopRequest = require("../models/ShopRequest");
 const Seller     = require("../models/Seller");
 const User       = require("../models/User");
 
+const uploadsDir = path.join(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+const uploadBranding = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowed.test(file.mimetype);
+    if (ext && mime) return cb(null, true);
+    cb(new Error("Only image files are allowed."));
+  },
+});
+
+function slugifyBase(name) {
+  return (
+    String(name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48) || "shop"
+  );
+}
+
+async function ensureSellerSlug(seller) {
+  if (seller.slug) return;
+  let base = slugifyBase(seller.shopName);
+  let candidate = base;
+  let n = 0;
+  while (true) {
+    const exists = await Seller.findOne({ slug: candidate, _id: { $ne: seller._id } });
+    if (!exists) {
+      seller.slug = candidate;
+      return;
+    }
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+}
+
 const SITE_NAME = "Thriftly";
 const SITE_URL  = process.env.APP_URL || "http://localhost:5000";
+const API_PUBLIC = process.env.API_PUBLIC_URL || "http://localhost:5000";
 const ADMIN_EMAIL = process.env.EMAIL_USER; // admin gets approval emails at this address
+
+function absUploadUrl(url) {
+  if (!url) return "";
+  if (String(url).startsWith("http")) return url;
+  return `${API_PUBLIC}${String(url).startsWith("/") ? "" : "/"}${url}`;
+}
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -43,6 +101,105 @@ async function sendApprovedSellerEmail({ email, firstName, shopName, tempPasswor
     console.error("Seller approval email failed:", err.message);
   }
 }
+
+async function requireApprovedSellerApi(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  if (req.session.role !== "seller") return res.status(403).json({ message: "Seller only." });
+  try {
+    const seller = await Seller.findOne({ userId: req.session.userId });
+    if (!seller) return res.status(404).json({ message: "Seller profile not found." });
+    if (!seller.isApproved) return res.status(403).json({ message: "Shop not approved yet." });
+    req.sellerRecord = seller;
+    return next();
+  } catch (e) {
+    return res.status(500).json({ message: "Server error." });
+  }
+}
+
+// ── GET /api/shop/my  — seller storefront settings + user PFP reference ──
+router.get("/my", requireApprovedSellerApi, async (req, res) => {
+  try {
+    const user = await User.findById(req.session.userId).select("-password");
+    const s = req.sellerRecord;
+    return res.status(200).json({
+      seller: {
+        shopName: s.shopName,
+        slug: s.slug || slugifyBase(s.shopName),
+        shopDescription: s.shopDescription || "",
+        tags: s.tags || [],
+        location: s.location || "",
+        headerImageUrl: absUploadUrl(s.headerImageUrl || ""),
+        shopLogoUrl: absUploadUrl(s.shopLogoUrl || ""),
+      },
+      user: {
+        avatarUrl: user?.avatarUrl || "",
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+      },
+    });
+  } catch (err) {
+    console.error("shop my get:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── PATCH /api/shop/my  — description + tags ──────────────────────────────
+router.patch("/my", requireApprovedSellerApi, async (req, res) => {
+  try {
+    const seller = req.sellerRecord;
+    if (req.body.shopDescription !== undefined) {
+      seller.shopDescription = String(req.body.shopDescription || "").replace(/[<>]/g, "").trim().slice(0, 5000);
+    }
+    if (Array.isArray(req.body.tags)) {
+      seller.tags = req.body.tags
+        .map((t) => String(t).replace(/[<>]/g, "").trim())
+        .filter(Boolean)
+        .slice(0, 20);
+    }
+    await seller.save();
+    return res.status(200).json({
+      message: "Saved.",
+      seller: {
+        shopDescription: seller.shopDescription,
+        tags: seller.tags,
+      },
+    });
+  } catch (err) {
+    console.error("shop my patch:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── POST /api/shop/my/branding  — header + logo images ───────────────────
+router.post(
+  "/my/branding",
+  requireApprovedSellerApi,
+  (req, res, next) => {
+    uploadBranding.fields([
+      { name: "header", maxCount: 1 },
+      { name: "logo", maxCount: 1 },
+    ])(req, res, (err) => {
+      if (err) return res.status(400).json({ message: err.message || "Upload failed." });
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const seller = req.sellerRecord;
+      if (req.files?.header?.[0]) seller.headerImageUrl = `/uploads/${req.files.header[0].filename}`;
+      if (req.files?.logo?.[0]) seller.shopLogoUrl = `/uploads/${req.files.logo[0].filename}`;
+      await seller.save();
+      return res.status(200).json({
+        message: "Uploads saved.",
+        headerImageUrl: seller.headerImageUrl,
+        shopLogoUrl: seller.shopLogoUrl,
+      });
+    } catch (err) {
+      console.error("shop branding:", err);
+      return res.status(500).json({ message: "Server error." });
+    }
+  }
+);
 
 // ────────────────────────────────────────────────────────────
 // POST /api/shop/request  — new shop application from homepage form
@@ -179,6 +336,7 @@ router.get("/approve/:token", async (req, res) => {
       seller.isApproved      = true;
       seller.approvedAt      = new Date();
     }
+    await ensureSellerSlug(seller);
     await seller.save();
 
     // Mark request as approved

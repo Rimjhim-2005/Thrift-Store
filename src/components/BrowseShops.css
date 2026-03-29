@@ -6,6 +6,7 @@
 }
 .browse-view-all {
   font-size: 14px; color: var(--moss); text-decoration: none; font-weight: 500;
+  background: none; border: none; cursor: pointer; font-family: inherit; padding: 0;
 }
 .browse-view-all:hover { text-decoration: underline; }
 

@@ -1,25 +1,37 @@
 import { useState, useEffect, useRef } from "react";
-import { SHOPS } from "../data";
 import "./BrowseShops.css";
 
+const API = "http://localhost:5000/api";
 const FILTERS = ["All", "Vintage", "Streetwear", "Luxury Resale", "Kids & Baby", "Accessories", "Near Me"];
 
 function ShopCard({ shop, delay, onShopClick }) {
+  // Map API shop structure to display fields
+  const displayShop = {
+    name: shop.shopName,
+    location: shop.location || "Location not specified",
+    desc: shop.shopDescription || "Browse our curated collection",
+    tags: shop.tags && shop.tags.length > 0 ? shop.tags : ["Thrifted"],
+    items: 0, // Will be retrieved separately
+    logo: "🛍️",
+    banner: "banner-default",
+    ...shop,
+  };
+
   return (
-    <div className={`shop-card reveal reveal-delay-${delay}`} onClick={() => onShopClick(shop)}>
-      <div className={`shop-card-banner ${shop.banner}`}>
-        <div className="shop-logo">{shop.logo}</div>
+    <div className={`shop-card reveal reveal-delay-${delay}`} onClick={() => onShopClick(displayShop)}>
+      <div className={`shop-card-banner ${displayShop.banner}`}>
+        <div className="shop-logo">{displayShop.logo}</div>
       </div>
       <div className="shop-card-body">
-        <h3 className="shop-name">{shop.name}</h3>
-        <p className="shop-location">📍 {shop.location}</p>
-        <p className="shop-desc">{shop.desc}</p>
+        <h3 className="shop-name">{displayShop.name}</h3>
+        <p className="shop-location">📍 {displayShop.location}</p>
+        <p className="shop-desc">{displayShop.desc}</p>
         <div className="shop-tags">
-          {shop.tags.map((tag) => <span key={tag} className="shop-tag">{tag}</span>)}
+          {displayShop.tags.slice(0, 3).map((tag) => <span key={tag} className="shop-tag">{tag}</span>)}
         </div>
         <div className="shop-footer">
-          <p className="shop-items"><span>{shop.items}</span> items listed</p>
-          <button className="shop-cta" onClick={(e) => { e.stopPropagation(); onShopClick(shop); }}>
+          <p className="shop-items"><span>{displayShop.viewCount || 0}</span> views · <span>{displayShop.orderCount || 0}</span> orders</p>
+          <button className="shop-cta" onClick={(e) => { e.stopPropagation(); onShopClick(displayShop); }}>
             View Shop
           </button>
         </div>
@@ -28,9 +40,31 @@ function ShopCard({ shop, delay, onShopClick }) {
   );
 }
 
-export default function BrowseShops({ onShopClick }) {
+export default function BrowseShops({ onShopClick, onViewAll }) {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [shops, setShops] = useState([]);
+  const [loading, setLoading] = useState(true);
   const sectionRef = useRef(null);
+
+  // Fetch top shops from API
+  useEffect(() => {
+    const fetchTopShops = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/analytics/top-shops?limit=6`, { credentials: "include" });
+        const data = await res.ok ? await res.json() : { shops: [] };
+        // Sort by viewCount descending (most viewed first)
+        const sorted = (data.shops || []).sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+        setShops(sorted);
+      } catch (err) {
+        console.error("Failed to fetch top shops:", err);
+        setShops([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTopShops();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -39,7 +73,7 @@ export default function BrowseShops({ onShopClick }) {
     );
     sectionRef.current?.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [shops]);
 
   return (
     <section id="browse" ref={sectionRef}>
@@ -48,7 +82,7 @@ export default function BrowseShops({ onShopClick }) {
           <span className="section-eyebrow">Directory</span>
           <h2 className="section-title-lg">Browse <em>Thrift Shops</em></h2>
         </div>
-        <a href="#" className="browse-view-all">View all shops →</a>
+        <button type="button" className="browse-view-all" onClick={() => onViewAll?.()}>View all shops →</button>
       </div>
 
       <div className="browse-filters reveal">
@@ -64,13 +98,23 @@ export default function BrowseShops({ onShopClick }) {
       </div>
 
       <div className="shops-grid">
-        {SHOPS.map((shop, i) => (
-          <ShopCard key={shop.id} shop={shop} delay={(i % 3) + 1} onShopClick={onShopClick} />
-        ))}
+        {loading ? (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 20px", color: "#666" }}>
+            <p>Loading best shops...</p>
+          </div>
+        ) : shops.length > 0 ? (
+          shops.map((shop, i) => (
+            <ShopCard key={shop._id || shop.id} shop={shop} delay={(i % 3) + 1} onShopClick={onShopClick} />
+          ))
+        ) : (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 20px", color: "#666" }}>
+            <p>No shops available yet. Check back soon!</p>
+          </div>
+        )}
       </div>
 
       <div className="browse-load-more reveal">
-        <button className="btn-load-more">Load More Shops</button>
+        <button type="button" className="btn-load-more" onClick={() => onViewAll?.()}>Load More Shops</button>
       </div>
     </section>
   );

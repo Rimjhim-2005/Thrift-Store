@@ -24,8 +24,11 @@ const STEPS = [
   },
 ];
 
-export default function HowItWorks() {
+export default function HowItWorks({ user }) {
   const sectionRef = useRef(null);
+
+  // Only show this section to non-logged-in users
+  if (user && user.id) return null;
 
   useEffect(() => {
     const observer = new IntersectionObserver(

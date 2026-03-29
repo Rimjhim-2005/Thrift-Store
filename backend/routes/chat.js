@@ -20,6 +20,19 @@ function sanitizeText(value = "") {
   return String(value).replace(/[<>]/g, "").trim();
 }
 
+function isMongoId(val) {
+  return /^[a-f\d]{24}$/i.test(String(val || ""));
+}
+
+function emitChat(io, conversation, messageDoc) {
+  if (!io) return;
+  const cid = String(conversation._id);
+  io.to(`conversation:${cid}`).emit("chat:message", messageDoc);
+  io.to(`user:${conversation.buyerId}`).emit("chat:conversation-updated", conversation);
+  const sid = String(conversation.sellerId);
+  if (isMongoId(sid)) io.to(`user:${sid}`).emit("chat:conversation-updated", conversation);
+}
+
 router.use(requireAuth);
 
 // GET /api/chat/conversations
@@ -39,65 +52,170 @@ router.get("/conversations", async (req, res) => {
 // POST /api/chat/conversations/get-or-create
 router.post("/conversations/get-or-create", async (req, res) => {
   try {
-    const buyerId = sanitizeText(req.body?.buyerId || req.session.userId);
-    let sellerId = sanitizeText(req.body?.sellerId);
+    const buyerId = String(req.session.userId);
     const shopName = sanitizeText(req.body?.shopName);
     const sellerEmailFallback = sanitizeText(req.body?.sellerEmail);
-    const productId = sanitizeText(req.body?.productId);
+    let rawSellerId = sanitizeText(req.body?.sellerId);
+
+    // Phase 1: Improved conversation initialization with proper seller ID lookup
+    let sellerRecord = null;
+    if (shopName) sellerRecord = await Seller.findOne({ shopName });
+    if (!sellerRecord && rawSellerId && isMongoId(rawSellerId)) {
+      sellerRecord = await Seller.findOne({ userId: rawSellerId });
+    }
+
+    let conversationSellerId;
+    // Priority: Always prefer actual userId from seller record
+    if (sellerRecord?.userId) {
+      conversationSellerId = String(sellerRecord.userId);
+    } else if (rawSellerId && isMongoId(rawSellerId) && !rawSellerId.startsWith("shop")) {
+      // Direct ObjectID passed
+      conversationSellerId = rawSellerId;
+    } else if (shopName) {
+      // Last resort: For non-ObjectID shop identifiers
+      conversationSellerId = `shop:${shopName}`;
+    } else {
+      conversationSellerId = `shop:unknown`;
+    }
+
+    const createCheckoutSummary = !!req.body?.createCheckoutSummary;
+    const checkoutItems = Array.isArray(req.body?.checkoutItems) ? req.body.checkoutItems : [];
+    const checkoutTotal = Number(req.body?.checkoutTotal) || 0;
+    const orderId = sanitizeText(req.body?.orderId || "");
+
+    let productId = sanitizeText(req.body?.productId || "");
     const productName = sanitizeText(req.body?.productName);
     const productPrice = Number(req.body?.productPrice) || 0;
     const createIntentCard = !!req.body?.createIntentCard;
 
-    if ((!sellerId || sellerId.startsWith("shop-")) && shopName) {
-      const seller = await Seller.findOne({ shopName });
-      if (seller?.userId) sellerId = String(seller.userId);
+    if (createCheckoutSummary) {
+      productId = orderId ? `order-${orderId}` : `checkout-${buyerId}`;
     }
 
-    if (!sellerId || sellerId.startsWith("shop-")) {
-      sellerId = `shop:${shopName || "unknown"}`;
-    }
-
-    let conversation = await Conversation.findOne({ buyerId, sellerId, productId });
+    let conversation = await Conversation.findOne({ buyerId, sellerId: conversationSellerId, productId });
     if (!conversation) {
       conversation = await Conversation.create({
         buyerId,
-        sellerId,
+        sellerId: conversationSellerId,
+        shopName: shopName || sellerRecord?.shopName || "",
         productId,
-        productName,
-        productPrice,
+        productName: createCheckoutSummary
+          ? `Checkout (${checkoutItems.length || 0} items)`
+          : productName,
+        productPrice: createCheckoutSummary ? checkoutTotal : productPrice,
       });
+    } else if (!conversation.shopName && (shopName || sellerRecord?.shopName)) {
+      conversation.shopName = shopName || sellerRecord?.shopName || "";
+      await conversation.save();
     }
 
-    if (createIntentCard) {
-      const alreadyHasCard = await Message.findOne({
+    const io = req.app.locals.io;
+
+    if (createCheckoutSummary && checkoutItems.length) {
+      const lineItems = checkoutItems
+        .map((row) => ({
+          productId: sanitizeText(row.productId || row._id || row.id || ""),
+          name: sanitizeText(row.name || row.title || "Item"),
+          price: Number(row.price) || 0,
+          quantity: Math.max(1, Number(row.quantity || row.qty || 1)),
+        }))
+        .filter((r) => r.name || r.productId);
+
+      const already = await Message.findOne({
         conversationId: conversation._id,
-        "meta.cardType": "purchase_intent",
+        "meta.cardType": "checkout_summary",
+        ...(orderId ? { "meta.orderId": orderId } : {}),
       });
 
-      if (!alreadyHasCard) {
-        const text = `Purchase intent: ${productName || "Item"} (ID: ${productId || "N/A"}) - P${productPrice.toLocaleString()}`;
+      if (!already && lineItems.length) {
+        // Format checkout message with detailed item information
+        const itemDetails = lineItems
+          .map((l) => {
+            const itemTotal = l.price * l.quantity;
+            const qtyText = l.quantity > 1 ? ` (qty: ${l.quantity})` : "";
+            return `Item: ${l.name} (ID: ${l.productId})\nPrice: ₹${itemTotal.toLocaleString()}${qtyText}`;
+          })
+          .join("\n");
+        
+        const summary = lineItems.length === 1 
+          ? `Purchase intent: ${lineItems[0].name} (ID: ${lineItems[0].productId}) - ₹${(lineItems[0].price * lineItems[0].quantity).toLocaleString()}`
+          : `Purchase intent: Order for ${lineItems.length} items - ₹${checkoutTotal.toLocaleString()}`;
+        
+        const text = `${summary}\n${itemDetails}`;
         const firstMessage = await Message.create({
           conversationId: conversation._id,
           senderId: buyerId,
           senderRole: "buyer",
           text,
-          meta: { cardType: "purchase_intent", productId, productName, productPrice },
+          meta: {
+            cardType: "checkout_summary",
+            lineItems,
+            totalPrice: checkoutTotal,
+            orderId,
+          },
         });
 
         conversation.lastMessage = text;
         conversation.lastMessageAt = firstMessage.createdAt;
         await conversation.save();
 
-        req.app.locals.io?.to(`conversation:${conversation._id}`).emit("chat:message", firstMessage);
-        req.app.locals.io?.to(`user:${buyerId}`).emit("chat:conversation-updated", conversation);
-        req.app.locals.io?.to(`user:${sellerId}`).emit("chat:conversation-updated", conversation);
+        emitChat(io, conversation, firstMessage);
 
-        // Notify seller asynchronously (app notification + email).
         (async () => {
           try {
             let sellerEmail = sellerEmailFallback;
-            if (!sellerEmail && sellerId && !sellerId.startsWith("shop:")) {
-              const sellerUser = await User.findById(sellerId);
+            if (!sellerEmail && isMongoId(conversationSellerId)) {
+              const u = await User.findById(conversationSellerId);
+              sellerEmail = u?.email || "";
+            }
+            if (sellerEmail) {
+              const lines = lineItems
+                .map((l) => `• ${l.name} x${l.quantity} — P${(l.price * l.quantity).toLocaleString()}`)
+                .join("\n");
+              await transporter.sendMail({
+                from: `"Thriftly" <${process.env.EMAIL_USER}>`,
+                to: sellerEmail,
+                subject: "New checkout from a buyer",
+                text: `A buyer completed checkout and sent this cart:\n\n${lines}\n\nTotal: P${checkoutTotal.toLocaleString()}\n\nPlease log in to Thriftly to coordinate the sale.`,
+              });
+            }
+          } catch (emailErr) {
+            console.error("Checkout summary email failed:", emailErr.message);
+          }
+        })();
+      }
+    } else if (createIntentCard) {
+      const alreadyHasCard = await Message.findOne({
+        conversationId: conversation._id,
+        "meta.cardType": "purchase_intent",
+      });
+
+      if (!alreadyHasCard) {
+        const text = `Purchase intent: ${productName || "Item"} (ID: ${sanitizeText(req.body?.productId || "") || "N/A"}) - P${productPrice.toLocaleString()}`;
+        const firstMessage = await Message.create({
+          conversationId: conversation._id,
+          senderId: buyerId,
+          senderRole: "buyer",
+          text,
+          meta: {
+            cardType: "purchase_intent",
+            productId: sanitizeText(req.body?.productId || ""),
+            productName,
+            productPrice,
+          },
+        });
+
+        conversation.lastMessage = text;
+        conversation.lastMessageAt = firstMessage.createdAt;
+        await conversation.save();
+
+        emitChat(io, conversation, firstMessage);
+
+        (async () => {
+          try {
+            let sellerEmail = sellerEmailFallback;
+            if (!sellerEmail && isMongoId(conversationSellerId)) {
+              const sellerUser = await User.findById(conversationSellerId);
               sellerEmail = sellerUser?.email || "";
             }
             if (sellerEmail) {
@@ -167,9 +285,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 
-    req.app.locals.io?.to(`conversation:${conversation._id}`).emit("chat:message", message);
-    req.app.locals.io?.to(`user:${conversation.buyerId}`).emit("chat:conversation-updated", conversation);
-    req.app.locals.io?.to(`user:${conversation.sellerId}`).emit("chat:conversation-updated", conversation);
+    emitChat(req.app.locals.io, conversation, message);
 
     return res.status(201).json({ message });
   } catch (err) {

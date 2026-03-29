@@ -1,0 +1,155 @@
+.shopsettings-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  font-family: "DM Sans", system-ui, sans-serif;
+  background: #faf6ec;
+  min-height: 100vh;
+  color: #2d2416;
+}
+
+.shopsettings-back {
+  border: none;
+  background: #fff;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(45, 36, 22, 0.08);
+}
+
+.shopsettings-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.65rem;
+}
+
+.shopsettings-slug-hint {
+  margin: 0;
+  color: #6b5c4a;
+  font-size: 0.95rem;
+}
+
+.shopsettings-note {
+  font-size: 0.85rem;
+  color: #7c6a50;
+  margin: 0.75rem 0 0;
+}
+
+.shopsettings-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 1.35rem 1.5rem;
+  margin-top: 1.25rem;
+  box-shadow: 0 4px 24px rgba(45, 36, 22, 0.06);
+  border: 1px solid rgba(229, 224, 213, 0.9);
+}
+
+.shopsettings-card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+
+.shopsettings-textarea,
+.shopsettings-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e5e0d5;
+  font-family: inherit;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.shopsettings-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5c4328;
+  margin-bottom: 0.35rem;
+}
+
+.shopsettings-primary {
+  margin-top: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 12px;
+  border: none;
+  background: #5c6b3a;
+  color: #faf6ec;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shopsettings-primary:disabled {
+  opacity: 0.6;
+}
+
+.shopsettings-preview-row {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.shopsettings-banner-preview {
+  height: 100px;
+  border-radius: 12px;
+  background: #e5e0d5;
+  background-size: cover;
+  background-position: center;
+  margin: 0.5rem 0;
+}
+
+.shopsettings-logo-preview-wrap {
+  margin: 0.5rem 0;
+}
+
+.shopsettings-logo-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.shopsettings-logo-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: #f5f0e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #7c6a50;
+}
+
+.shopsettings-msg {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #5c6b3a;
+}
+
+.shopsettings-file-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shopsettings-file-btn {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 107, 58, 0.45);
+  background: #f5f0e8;
+  color: #3d4d28;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.shopsettings-file-btn:hover {
+  background: #ebe4d8;
+}

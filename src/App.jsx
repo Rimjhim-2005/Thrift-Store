@@ -3,6 +3,7 @@ import "./styles/globals.css";
 import Navbar        from "./components/Navbar";
 import Hero          from "./components/Hero";
 import HowItWorks    from "./components/HowItWorks";
+import BestSellers   from "./components/BestSellers";
 import BrowseShops   from "./components/BrowseShops";
 import Signup        from "./components/Signup";
 import Footer        from "./components/Footer";
@@ -12,11 +13,14 @@ import ProductDetail from "./components/ProductDetail";
 import SearchPage    from "./components/SearchPage";
 import ListItem      from "./components/ListItem";
 import Cart          from "./components/Cart";
-import AccountPage   from "./components/AccountPage";
-import MessagesPage  from "./components/MessagesPage";
+import AccountPage       from "./components/AccountPage";
+import MessagesPage      from "./components/MessagesPage";
+import AllShopsDirectory from "./components/AllShopsDirectory";
+import ShopSettings      from "./components/ShopSettings";
 import { SHOPS } from "./data";
+import { getListingStockCap } from "./utils/stock";
 
-// page: "home" | "login" | "shop" | "product" | "search" | "list-item" | "messages" | "account"
+// page: ... | "all-shops" | "shop-settings"
 
 export default function App() {
   const [page, setPage]                   = useState("home");
@@ -50,6 +54,11 @@ export default function App() {
 
   const normalizeCartItem = (item) => {
     const id = String(item?._id || item?.id || item?.productId || "").trim();
+    const stockRaw = item?.stock;
+    const stock =
+      stockRaw === undefined || stockRaw === null || stockRaw === ""
+        ? undefined
+        : Math.max(0, Math.floor(Number(stockRaw)));
     return {
       _id: id,
       id,
@@ -58,6 +67,7 @@ export default function App() {
       name: item?.name || item?.title || "",
       price: Number(item?.price) || 0,
       qty: Math.max(1, Number(item?.qty || item?.quantity || 1)),
+      stock,
       images: Array.isArray(item?.images) ? item.images : item?.image ? [item.image] : [],
       shopName: item?.shopName || "",
       palette: item?.palette || "",
@@ -87,6 +97,7 @@ export default function App() {
             image: item.images?.[0] || "",
             shopName: item.shopName || "",
             quantity: Number(item.qty) || 1,
+            stock: item.stock,
           })),
         }),
       });
@@ -103,7 +114,47 @@ export default function App() {
   const goMessages = (context = null) => { setInitialChatContext(context); setPage("messages"); window.scrollTo(0, 0); };
   const goAccount  = ()     => { setPage("account");   window.scrollTo(0, 0); };
   const goShop     = (shop) => { setActiveShop(shop);    setPage("shop");    window.scrollTo(0, 0); };
+  const goAllShops = ()     => { setPage("all-shops");  window.scrollTo(0, 0); };
+  const goShopSettings = () => { setPage("shop-settings"); window.scrollTo(0, 0); };
   const goProduct  = (prod) => { setActiveProduct(prod); setPage("product"); window.scrollTo(0, 0); };
+
+  const goViewItem = (item) => { 
+    // Handle both mock data products and database items
+    const processedItem = {
+      _id: item._id,
+      id: item._id,  // Use MongoDB _id as id for compatibility
+      name: item.name || item.title,
+      title: item.name || item.title,
+      price: item.price,
+      description: item.description,
+      category: item.category,
+      condition: item.condition,
+      images: item.images,
+      stock: item.stock || 1,
+      sellerId: item.sellerId,
+      shopName: item.sellerId?.shopName || "",
+      palette: item.palette || "linear-gradient(135deg,#C9B99A 0%,#A08060 100%)",
+    };
+    goProduct(processedItem); 
+  };
+
+  const goMyLiveShop = (info) => {
+    const shopName = info?.shopName || info?.name || "";
+    const slug = info?.slug || "";
+    const matched = SHOPS.find((s) => s.name === shopName);
+    setActiveShop({
+      ...matched,
+      id: matched?.id,
+      name: shopName || matched?.name,
+      shopName,
+      slug,
+      logo: matched?.logo || "🏪",
+      email: matched?.email || "",
+      dbShop: true,
+    });
+    setPage("shop");
+    window.scrollTo(0, 0);
+  };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
@@ -125,10 +176,23 @@ export default function App() {
   const addToCart = (product) => {
     setCartItems(prev => {
       const normalized = normalizeCartItem(product);
-      const existing = prev.find(i => i._id === normalized._id);
-      const next = existing
-        ? prev.map(i => i._id === normalized._id ? { ...i, qty: i.qty + 1 } : i)
-        : [...prev, { ...normalized, qty: normalized.qty || 1 }];
+      const cap = getListingStockCap(normalized);
+      const requestedAdd = Math.max(1, Number(normalized.qty) || 1);
+      const existing = prev.find((i) => i._id === normalized._id);
+      let next;
+      if (existing) {
+        const merged = Math.min(existing.qty + requestedAdd, cap);
+        next = prev.map((i) =>
+          i._id === normalized._id ? { ...i, qty: merged, stock: normalized.stock ?? i.stock } : i
+        );
+      } else {
+        const initial = Math.min(requestedAdd, cap);
+        if (initial < 1) {
+          syncCartToServer(prev);
+          return prev;
+        }
+        next = [...prev, { ...normalized, qty: initial }];
+      }
       syncCartToServer(next);
       return next;
     });
@@ -143,8 +207,12 @@ export default function App() {
 
   const changeQty = (id, qty) => {
     if (qty < 1) return;
-    setCartItems(prev => {
-      const next = prev.map(i => i._id === String(id) ? { ...i, qty } : i);
+    setCartItems((prev) => {
+      const next = prev.map((i) => {
+        if (i._id !== String(id)) return i;
+        const cap = getListingStockCap(i);
+        return { ...i, qty: Math.min(qty, cap) };
+      });
       syncCartToServer(next);
       return next;
     });
@@ -157,12 +225,14 @@ export default function App() {
 
   const handleMessageSeller = async (shop, product) => {
     if (!user) { setPage("login"); return; }
+    const shopName = shop?.name || shop?.shopName || "";
+    const matched = SHOPS.find((s) => s.name === shopName);
     const context = {
-      sellerId: `shop-${shop?.id || "unknown"}`,
-      shopName: shop?.name || "",
-      sellerEmail: shop?.email || "",
-      productId: String(product?.id || ""),
-      productName: product?.name || shop?.name || "Shop inquiry",
+      sellerId: shop?._id ? String(shop._id) : `shop-${shop?.id ?? "unknown"}`,
+      shopName,
+      sellerEmail: shop?.email || matched?.email || "",
+      productId: String(product?.id || product?._id || ""),
+      productName: product?.name || shopName || "Shop inquiry",
       productPrice: Number(product?.price) || 0,
       createIntentCard: !!product,
     };
@@ -171,23 +241,48 @@ export default function App() {
 
   const handleBuyNow = async (product) => {
     if (!user) { setPage("login"); return; }
-    const shopName = activeShop?.name || "";
+    const shopName = activeShop?.name || activeShop?.shopName || product?.shopName || "";
+    const matched = SHOPS.find((s) => s.name === shopName);
+    
+    // Phase 2: Pass proper context with item details for auto-message
     const context = {
-      sellerId: `shop-${activeShop?.id || "unknown"}`,
+      sellerId: activeShop?._id ? String(activeShop._id) : `shop-${activeShop?.id ?? "unknown"}`,
       shopName,
-      sellerEmail: activeShop?.email || "",
-      productId: String(product?.id || ""),
+      sellerEmail: activeShop?.email || matched?.email || "",
+      productId: String(product?.id || product?._id || ""),
       productName: product?.name || "Item",
       productPrice: Number(product?.price) || 0,
-      createIntentCard: true,
+      itemName: product?.name || "Item",  // For auto-message display
+      quantity: 1,  // Default quantity for Buy Now
+      createIntentCard: true,  // Trigger auto-message on chat init
     };
-    addToCart({ ...product, _id: String(product.id), title: product.name, shopName });
+    
+    addToCart({
+      ...product,
+      _id: String(product._id || product.id),
+      id: String(product._id || product.id),
+      title: product.name,
+      name: product.name,
+      shopName,
+      stock: product.stock,
+      qty: 1,
+    });
     goMessages(context);
   };
 
   const handleCheckout = async () => {
     if (!user || !cartItems.length) return;
-    const first = cartItems[0];
+    
+    // Phase 3: Frontend validation for single-shop checkout
+    const uniqueShops = [...new Set(cartItems.map(i => i.shopName).filter(Boolean))];
+    if (uniqueShops.length > 1) {
+      alert("Single shop checkout only. Please remove items from other shops.");
+      return;
+    }
+
+    const snapshot = cartItems.map((i) => ({ ...i }));
+    const cartTotal = snapshot.reduce((sum, i) => sum + Number(i.price) * i.qty, 0);
+    const first = snapshot[0];
     const matchedShop = SHOPS.find((s) => s.name === first.shopName);
     const payload = {
       shopId: first.shopName || "",
@@ -198,7 +293,7 @@ export default function App() {
         phone: user.phone || "",
         address: "",
       },
-      items: cartItems.map((i) => ({
+      items: snapshot.map((i) => ({
         productId: i._id || i.id,
         name: i.title || i.name,
         price: i.price,
@@ -215,18 +310,29 @@ export default function App() {
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || "Checkout failed.");
+        return;
+      }
+      const orderId = data.order?._id ? String(data.order._id) : "";
       setCartItems([]);
-      const context = {
+      syncCartToServer([]);
+      goMessages({
         sellerId: first.shopName ? `shop-${first.shopName}` : "shop-unknown",
         shopName: first.shopName || "",
         sellerEmail: matchedShop?.email || "",
-        productId: first._id || first.id || "",
-        productName: first.title || first.name || "Item",
-        productPrice: Number(first.price) || 0,
-        createIntentCard: true,
-      };
-      goMessages(context);
+        createCheckoutSummary: true,
+        checkoutItems: snapshot.map((i) => ({
+          productId: String(i._id || i.id || ""),
+          name: i.title || i.name || "Item",
+          price: Number(i.price) || 0,
+          quantity: i.qty,
+        })),
+        checkoutTotal: cartTotal,
+        orderId,
+        createIntentCard: false,
+      });
     } catch (_) {}
   };
 
@@ -256,11 +362,17 @@ export default function App() {
   } else if (page === "search") {
     pageContent = <SearchPage onBack={goHome} onProductClick={goProduct} />;
   } else if (page === "list-item") {
-    pageContent = <ListItem onBack={goHome} user={user} />;
+    pageContent = <ListItem onBack={goHome} user={user} onViewMyShop={goMyLiveShop} onViewItem={goViewItem} />;
+  } else if (page === "all-shops") {
+    pageContent = <AllShopsDirectory onBack={goHome} onShopClick={goShop} />;
+  } else if (page === "shop-settings") {
+    pageContent = <ShopSettings onBack={goAccount} user={user} />;
   } else if (page === "shop") {
     pageContent = (
       <ShopDetail
         shop={activeShop}
+        user={user}
+        onUserUpdate={handleProfileUpdate}
         onBack={goHome}
         onProductClick={goProduct}
         onMessageSeller={handleMessageSeller}
@@ -301,6 +413,7 @@ export default function App() {
         onCheckout={handleCheckout}
         onOpenMessages={() => goMessages()}
         onLogout={handleLogout}
+        onShopSettings={user?.role === "seller" ? goShopSettings : undefined}
       />
     );
   } else {
@@ -318,8 +431,9 @@ export default function App() {
           onMessagesClick={() => goMessages()}
         />
         <Hero onLoginClick={goLogin} />
-        <HowItWorks />
-        <BrowseShops onShopClick={goShop} />
+        <HowItWorks user={user} />
+        <BestSellers onItemClick={goViewItem} />
+        <BrowseShops onShopClick={goShop} onViewAll={goAllShops} />
         <Signup user={user} />
         <Footer />
       </>

@@ -1,5 +1,15 @@
 const mongoose = require("mongoose");
 
+const lineItemSchema = new mongoose.Schema(
+  {
+    productId: { type: String, default: "" },
+    name: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    quantity: { type: Number, default: 1 },
+  },
+  { _id: false }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation", required: true, index: true },
@@ -12,6 +22,9 @@ const messageSchema = new mongoose.Schema(
         productId: { type: String, default: "" },
         productName: { type: String, default: "" },
         productPrice: { type: Number, default: 0 },
+        lineItems: { type: [lineItemSchema], default: undefined },
+        totalPrice: { type: Number, default: 0 },
+        orderId: { type: String, default: "" },
       },
       default: {},
     },

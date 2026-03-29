@@ -1,10 +1,12 @@
 const express    = require("express");
 const router     = express.Router();
 const nodemailer = require("nodemailer");
+const mongoose   = require("mongoose");
 const User       = require("../models/User");
 const Seller     = require("../models/Seller");
 const Buyer      = require("../models/Buyer");
 const Order      = require("../models/Order");
+const Item       = require("../models/Item");
 
 const SITE_NAME = "Thriftly";
 const SITE_URL  = "http://localhost:5173";
@@ -340,6 +342,12 @@ router.post("/checkout", async (req, res) => {
 
     if (!items.length) return res.status(400).json({ message: "Cart is empty." });
 
+    // Phase 3: Validate single-shop checkout enforcement
+    const shopNames = [...new Set(items.map((i) => i.shopName).filter(Boolean))];
+    if (shopNames.length > 1) {
+      return res.status(400).json({ message: "Single shop checkout only." });
+    }
+
     const buyerContactInfo = {
       name: cleanText(req.body?.buyerContactInfo?.name),
       email: cleanText(req.body?.buyerContactInfo?.email),
@@ -367,6 +375,18 @@ router.post("/checkout", async (req, res) => {
       status: "pending",
     });
 
+    const shopsToBump = new Set();
+    for (const i of items) {
+      if (i.shopName) shopsToBump.add(i.shopName);
+    }
+    if (shopId) shopsToBump.add(shopId);
+    for (const name of shopsToBump) {
+      await Seller.updateMany(
+        { isApproved: true, shopName: name },
+        { $inc: { orderCount: 1 } }
+      );
+    }
+
     if (buyer) {
       buyer.cart = [];
       await buyer.save();
@@ -388,6 +408,44 @@ router.post("/checkout", async (req, res) => {
     return res.status(201).json({ message: "Checkout complete.", order });
   } catch (err) {
     console.error("Checkout error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── GET /api/auth/wishlist/items  — resolve DB + passthrough ids ─────────
+router.get("/wishlist/items", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ message: "Not logged in." });
+  try {
+    const user = await User.findById(req.session.userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    const ids = user.wishlist || [];
+    const items = [];
+    for (const raw of ids) {
+      const sid = String(raw);
+      if (mongoose.Types.ObjectId.isValid(sid)) {
+        const it = await Item.findById(sid).populate("sellerId", "shopName").lean();
+        if (it) {
+          const pics = (it.images || []).map((url) =>
+            String(url).startsWith("http") ? url : `http://localhost:5000${url.startsWith("/") ? "" : "/"}${url}`
+          );
+          items.push({
+            id: String(it._id),
+            _id: String(it._id),
+            name: it.name,
+            title: it.name,
+            price: it.price,
+            images: pics,
+            shopName: it.sellerId?.shopName || "",
+          });
+          continue;
+        }
+      }
+      items.push({ id: sid, _id: sid, name: "", title: "", price: 0, images: [], shopName: "", fallbackId: sid });
+    }
+    return res.status(200).json({ items });
+  } catch (err) {
+    console.error("wishlist items error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 });
@@ -452,6 +510,10 @@ router.put("/cart", async (req, res) => {
         image: String(item.image || item.images?.[0] || "").trim(),
         shopName: String(item.shopName || "").trim(),
         quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+        stock:
+          item.stock === undefined || item.stock === null || item.stock === ""
+            ? null
+            : Math.max(0, Math.floor(Number(item.stock))),
       }))
       .filter((item) => item.productId);
 

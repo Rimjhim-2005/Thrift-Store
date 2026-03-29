@@ -50,7 +50,7 @@
 //       <h3 className="pricing-name">{plan.name}</h3>
 //       <p className="pricing-desc">{plan.desc}</p>
 //       <div className="pricing-price">
-//         <span className="pricing-currency">₱</span>
+//         <span className="pricing-currency">₹</span>
 //         <span className="pricing-amount">{plan.price}</span>
 //         <span className="pricing-period">{plan.period}</span>
 //       </div>

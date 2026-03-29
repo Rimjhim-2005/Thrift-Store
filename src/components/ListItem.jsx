@@ -3,8 +3,9 @@ import "./ListItem.css";
 
 const API = "http://localhost:5000/api";
 
-export default function ListItem({ onBack, user }) {
+export default function ListItem({ onBack, user, onViewMyShop, onViewItem }) {
   const [items, setItems] = useState([]);
+  const [myShop, setMyShop] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -15,8 +16,8 @@ export default function ListItem({ onBack, user }) {
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("Good");
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
 
   const clearMessages = () => { setError(""); setSuccess(""); };
 
@@ -33,12 +34,36 @@ export default function ListItem({ onBack, user }) {
 
   useEffect(() => { fetchItems(); }, []);
 
+  useEffect(() => {
+    if (!user || user.role !== "seller") return;
+    fetch(`${API}/shop/my`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.seller) {
+          setMyShop({ shopName: data.seller.shopName, slug: data.seller.slug || "" });
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files);
+    if (files.length + imageFiles.length > 5) {
+      setError("Maximum 5 images allowed.");
+      return;
     }
+    const newFiles = [...imageFiles, ...files];
+    setImageFiles(newFiles);
+    
+    const previews = newFiles.map(file => URL.createObjectURL(file));
+    setImagePreviews(previews);
+  };
+
+  const removeImage = (index) => {
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImageFiles(newFiles);
+    setImagePreviews(newPreviews);
   };
 
   const handleSubmit = async (e) => {
@@ -53,7 +78,7 @@ export default function ListItem({ onBack, user }) {
       formData.append("price", price);
       formData.append("category", category);
       formData.append("condition", condition);
-      if (imageFile) formData.append("images", imageFile);
+      imageFiles.forEach(file => formData.append("images", file));
 
       const res = await fetch(`${API}/items`, {
         method: "POST",
@@ -64,7 +89,7 @@ export default function ListItem({ onBack, user }) {
       if (!res.ok) { setError(data.message || "Failed to create item."); return; }
       setSuccess("✓ Item listed successfully!");
       setTitle(""); setDescription(""); setPrice(""); setCategory(""); setCondition("Good");
-      setImageFile(null); setImagePreview(null);
+      setImageFiles([]); setImagePreviews([]);
       fetchItems();
     } catch { setError("Network error. Is the backend running?"); }
     finally { setLoading(false); }
@@ -100,6 +125,15 @@ export default function ListItem({ onBack, user }) {
         <div className="listitem-header">
           <h1>📦 List a New Item</h1>
           <p>Add products to your shop so buyers can discover them.</p>
+          {myShop?.shopName && (
+            <button
+              type="button"
+              className="listitem-view-shop"
+              onClick={() => onViewMyShop?.({ shopName: myShop.shopName, slug: myShop.slug })}
+            >
+              View my live shop →
+            </button>
+          )}
         </div>
 
         <div className="listitem-grid">
@@ -120,7 +154,7 @@ export default function ListItem({ onBack, user }) {
 
             <div className="listitem-row">
               <div className="listitem-group">
-                <label>Price (₱) *</label>
+                <label>Price (₹) *</label>
                 <input type="number" min="0" step="0.01" placeholder="299" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
               <div className="listitem-group">
@@ -152,9 +186,25 @@ export default function ListItem({ onBack, user }) {
             </div>
 
             <div className="listitem-group">
-              <label>Photo</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} />
-              {imagePreview && <img src={imagePreview} alt="Preview" className="listitem-preview" />}
+              <label>Photos (up to 5)</label>
+              <input type="file" accept="image/*" multiple onChange={handleImageChange} />
+              {imagePreviews.length > 0 && (
+                <div className="listitem-preview-gallery">
+                  {imagePreviews.map((preview, idx) => (
+                    <div key={idx} className="listitem-preview-item">
+                      <img src={preview} alt={`Preview ${idx + 1}`} className="listitem-preview" />
+                      <button
+                        type="button"
+                        className="listitem-preview-remove"
+                        onClick={() => removeImage(idx)}
+                        title="Remove this image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button type="submit" className="listitem-submit" disabled={loading}>
@@ -170,16 +220,29 @@ export default function ListItem({ onBack, user }) {
             ) : (
               <div className="listitem-items-list">
                 {items.map((item) => (
-                  <div key={item._id} className="listitem-card">
-                    {item.image && (
-                      <img src={`http://localhost:5000${item.image}`} alt={item.title} className="listitem-card-img" />
+                  <div 
+                    key={item._id} 
+                    className="listitem-card"
+                    onClick={() => onViewItem?.(item)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {item.images?.[0] && (
+                      <img src={`http://localhost:5000${item.images[0]}`} alt={item.name} className="listitem-card-img" />
                     )}
                     <div className="listitem-card-info">
-                      <p className="listitem-card-title">{item.title}</p>
-                      <p className="listitem-card-price">₱{item.price}</p>
+                      <p className="listitem-card-title">{item.name}</p>
+                      <p className="listitem-card-price">₹{item.price}</p>
                       <p className="listitem-card-meta">{item.category} · {item.condition}</p>
                     </div>
-                    <button className="listitem-card-delete" onClick={() => handleDelete(item._id)}>🗑</button>
+                    <button 
+                      className="listitem-card-delete" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item._id);
+                      }}
+                    >
+                      🗑
+                    </button>
                   </div>
                 ))}
               </div>

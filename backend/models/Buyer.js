@@ -11,6 +11,7 @@ const buyerSchema = new mongoose.Schema(
         image:     { type: String, default: "" },
         shopName:  { type: String, default: "" },
         quantity:  { type: Number, default: 1, min: 1 },
+        stock:     { type: Number, default: null },
       },
     ],
     purchaseHistory: [

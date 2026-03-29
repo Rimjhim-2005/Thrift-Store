@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
-import { PRODUCTS, SHOPS } from "../data";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { SHOPS } from "../data";
 import "./SearchPage.css";
+
+const API = "http://localhost:5000/api";
 
 // ── Text-based search ────────────────────────────────────────────────────────
 function scoreProduct(product, query) {
@@ -27,6 +29,18 @@ const SORT_OPTIONS = [
   { value: "relevance", label: "Most Relevant" },
   { value: "price-asc", label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
+];
+
+/** Multi-select style/tag filters (OR: item matches any selected tag). */
+const STYLE_TAG_FILTERS = [
+  { key: "vintage", label: "Vintage" },
+  { key: "streetwear", label: "Streetwear" },
+  { key: "denim", label: "Denim" },
+  { key: "sustainable", label: "Sustainable" },
+  { key: "linen", label: "Linen" },
+  { key: "hoodie", label: "Hoodie" },
+  { key: "outerwear", label: "Outerwear" },
+  { key: "sneakers", label: "Sneakers" },
 ];
 
 // ── AI Camera Analysis via Anthropic API ─────────────────────────────────────
@@ -117,7 +131,7 @@ function ProductCard({ product, onProductClick, score }) {
           <span className="sp-product-size">{product.size}</span>
         </div>
         <div className="sp-product-footer">
-          <span className="sp-product-price">₱ {product.price.toLocaleString()}</span>
+          <span className="sp-product-price">₹ {product.price.toLocaleString()}</span>
           <span className="sp-product-condition">{product.condition}</span>
         </div>
       </div>
@@ -131,6 +145,8 @@ export default function SearchPage({ onBack, onProductClick }) {
   const [category, setCategory]         = useState("All");
   const [sort, setSort]                 = useState("relevance");
   const [results, setResults]           = useState(null);
+  const [allItems, setAllItems]         = useState([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
 
   // Camera / AI state
   const [cameraMode, setCameraMode]     = useState(false);
@@ -139,15 +155,40 @@ export default function SearchPage({ onBack, onProductClick }) {
   const [aiResult, setAiResult]         = useState(null);
   const [aiError, setAiError]           = useState(null);
   const [aiResults, setAiResults]       = useState(null);
+  const [filterTags, setFilterTags]     = useState([]);
+
+  // Fetch all items from backend on component mount
+  useEffect(() => {
+    const fetchItems = async () => {
+      setItemsLoading(true);
+      try {
+        const res = await fetch(`${API}/items`, { credentials: "include" });
+        const data = await res.ok ? await res.json() : { items: [] };
+        setAllItems(data.items || []);
+      } catch (err) {
+        console.error("Failed to fetch items:", err);
+        setAllItems([]);
+      } finally {
+        setItemsLoading(false);
+      }
+    };
+    fetchItems();
+  }, []);
 
   const fileInputRef = useRef(null);
+
+  const toggleFilterTag = (key) => {
+    setFilterTags((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
 
   // ── Text search ────────────────────────────────────────────────────────────
   const handleSearch = (q = query) => {
     const q2 = q.trim();
     if (!q2) { setResults(null); return; }
 
-    let scored = PRODUCTS.map((p) => ({ ...p, _score: scoreProduct(p, q2) }))
+    let scored = allItems.map((p) => ({ ...p, _score: scoreProduct(p, q2) }))
       .filter((p) => p._score > 0);
 
     if (category !== "All") scored = scored.filter((p) => p.category === category);
@@ -183,8 +224,8 @@ export default function SearchPage({ onBack, onProductClick }) {
         const result = await analyzeImageWithAI(base64, mediaType);
         setAiResult(result);
 
-        // Score and filter products
-        let scored = PRODUCTS.map((p) => ({
+        // Score and filter products from backend
+        let scored = allItems.map((p) => ({
           ...p, _score: scoreProductByAI(p, result),
         })).filter((p) => p._score > 0)
           .sort((a, b) => b._score - a._score);
@@ -207,7 +248,24 @@ export default function SearchPage({ onBack, onProductClick }) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const displayedResults = aiResults ?? results;
+  const baseResults = aiResults ?? results;
+  const displayedResults = useMemo(() => {
+    if (!baseResults) return null;
+    if (filterTags.length === 0) return baseResults;
+    const wanted = filterTags.map((t) => t.toLowerCase());
+    return baseResults.filter((p) => {
+      const blob = [
+        ...(p.tags || []),
+        p.tag,
+        p.category,
+        p.style,
+        p.color,
+        p.era,
+      ].filter(Boolean).map((x) => String(x).toLowerCase());
+      return wanted.some((w) => blob.some((b) => b.includes(w) || w.includes(b)));
+    });
+  }, [baseResults, filterTags]);
+
   const hasSearch = results !== null || aiResults !== null;
 
   return (
@@ -330,16 +388,39 @@ export default function SearchPage({ onBack, onProductClick }) {
       {/* ── Filters ── */}
       {(hasSearch || query) && (
         <div className="sp-filters-bar">
-          <div className="sp-category-pills">
-            {CATEGORIES.map((cat) => (
+          <div className="sp-filters-left">
+            <div className="sp-category-pills">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  className={`sp-cat-pill ${category === cat ? "active" : ""}`}
+                  onClick={() => { setCategory(cat); handleSearch(); }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="sp-style-tags-row" role="group" aria-label="Filter by style tags">
+              <span className="sp-style-tags-label">Tags</span>
               <button
-                key={cat}
-                className={`sp-cat-pill ${category === cat ? "active" : ""}`}
-                onClick={() => { setCategory(cat); handleSearch(); }}
+                type="button"
+                className={`sp-style-tag-pill ${filterTags.length === 0 ? "active" : ""}`}
+                onClick={() => setFilterTags([])}
               >
-                {cat}
+                Any
               </button>
-            ))}
+              {STYLE_TAG_FILTERS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`sp-style-tag-pill ${filterTags.includes(key) ? "active" : ""}`}
+                  onClick={() => toggleFilterTag(key)}
+                  aria-pressed={filterTags.includes(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <select
             className="sp-sort-select"
@@ -369,14 +450,14 @@ export default function SearchPage({ onBack, onProductClick }) {
           <div className="sp-results-header">
             <p className="sp-results-count">
               {aiResults
-                ? `${aiResults.length} items matching your photo`
-                : `${displayedResults.length} result${displayedResults.length !== 1 ? "s" : ""} for "${query}"`}
+                ? `${displayedResults?.length ?? 0} items matching your photo`
+                : `${displayedResults?.length ?? 0} result${displayedResults?.length !== 1 ? "s" : ""} for "${query}"`}
             </p>
           </div>
         )}
 
         {/* Results grid */}
-        {hasSearch && displayedResults.length > 0 && (
+        {hasSearch && displayedResults && displayedResults.length > 0 && (
           <div className="sp-results-grid">
             {displayedResults.map((product) => (
               <ProductCard
@@ -389,7 +470,7 @@ export default function SearchPage({ onBack, onProductClick }) {
         )}
 
         {/* No results */}
-        {hasSearch && displayedResults.length === 0 && (
+        {hasSearch && displayedResults && displayedResults.length === 0 && (
           <div className="sp-no-results">
             <div className="sp-empty-icon">🔍</div>
             <h2>No items found</h2>

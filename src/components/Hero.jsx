@@ -51,14 +51,14 @@ export default function Hero() {
           <span className="hero-float-tag tag-green">Vintage</span>
           <div className="hero-float-name">Levi's 501 Jeans</div>
           <div className="hero-float-shop">📍 The Vintage Vault</div>
-          <div className="hero-float-price">₱ 850</div>
+          <div className="hero-float-price">₹ 850</div>
         </div>
         <div className="hero-float-card">
           <div className="hero-float-img banner-rust" />
           <span className="hero-float-tag tag-rust">Rare Find</span>
           <div className="hero-float-name">70s Leather Jacket</div>
           <div className="hero-float-shop">📍 Earthbound Finds</div>
-          <div className="hero-float-price">₱ 1,400</div>
+          <div className="hero-float-price">₹ 1,400</div>
         </div>
       </div> */}
     </section>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import "./UserProfile.css";
-import { PRODUCTS } from "../data";
 
 const API = "http://localhost:5000/api";
 
@@ -28,10 +27,7 @@ export default function UserProfile({
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   // ── Wishlist state ──────────────────────────────────────────
-  const wishlistIds = user.wishlist || [];
-  const wishlistProducts = PRODUCTS.filter(p =>
-    wishlistIds.includes(p.id) || wishlistIds.includes(String(p.id))
-  );
+  const [wishlistProducts, setWishlistProducts] = useState([]);
 
   // Fetch orders when tab switches to orders
   useEffect(() => {
@@ -42,6 +38,16 @@ export default function UserProfile({
         .then(data => setOrders(data.orders || []))
         .catch(() => setOrders([]))
         .finally(() => setOrdersLoading(false));
+    }
+  }, [tab]);
+
+  // Fetch wishlist items when tab switches to wishlist
+  useEffect(() => {
+    if (tab === "wishlist") {
+      fetch(`${API}/auth/wishlist/items`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(data => setWishlistProducts(data.items || []))
+        .catch(() => setWishlistProducts([]));
     }
   }, [tab]);
 
@@ -240,7 +246,7 @@ export default function UserProfile({
                         <div className="profile-item-info">
                           <p className="profile-item-name">{item.title || item.name}</p>
                           <p className="profile-item-shop">{item.shopName || ""}</p>
-                          <p className="profile-item-price">₱{(item.price * item.qty).toLocaleString()}</p>
+                          <p className="profile-item-price">₹{(item.price * item.qty).toLocaleString()}</p>
                           <div className="profile-qty-row">
                             <button className="profile-qty-btn" disabled={item.qty <= 1} onClick={() => onQtyChange(item._id || item.id, item.qty - 1)}>−</button>
                             <span className="profile-qty-val">{item.qty}</span>
@@ -254,7 +260,7 @@ export default function UserProfile({
                   <div className="profile-cart-footer">
                     <div className="profile-cart-total">
                       <span>Total</span>
-                      <span className="profile-cart-total-amt">₱{cartTotal.toLocaleString()}</span>
+                      <span className="profile-cart-total-amt">₹{cartTotal.toLocaleString()}</span>
                     </div>
                     <button className="profile-save-btn profile-checkout-btn">Proceed to Checkout →</button>
                     <p className="profile-cart-note">Checkout coming soon — items are saved for your session.</p>
@@ -282,7 +288,7 @@ export default function UserProfile({
                         <div className="profile-wish-swatch" style={{ background: p.palette || "#e5e0d5" }} />
                         <div className="profile-wish-info">
                           <p className="profile-wish-name">{p.name}</p>
-                          <p className="profile-wish-price">₱{p.price.toLocaleString()}</p>
+                          <p className="profile-wish-price">₹{p.price.toLocaleString()}</p>
                           <p className="profile-wish-meta">{p.category} · {p.condition}</p>
                         </div>
                         <button className="profile-wish-remove" title="Remove from wishlist" onClick={() => handleRemoveWishlist(p.id)}>✕</button>
@@ -331,12 +337,12 @@ export default function UserProfile({
                             <div key={idx} className="profile-order-item">
                               <span className="profile-order-item-name">{it.name}</span>
                               <span className="profile-order-item-qty">×{it.quantity}</span>
-                              <span className="profile-order-item-price">₱{it.price.toLocaleString()}</span>
+                              <span className="profile-order-item-price">₹{it.price.toLocaleString()}</span>
                             </div>
                           ))}
                         </div>
                         <div className="profile-order-total">
-                          Total: <strong>₱{order.total.toLocaleString()}</strong>
+                          Total: <strong>₹{order.total.toLocaleString()}</strong>
                         </div>
                       </div>
                     ))}

@@ -33,7 +33,7 @@ const upload = multer({
   },
 });
 
-// Auth middleware — must be logged in as an approved seller
+// Auth middleware — must be logged in as a seller
 function requireApprovedSeller(req, res, next) {
   if (!req.session.userId) {
     return res.status(401).json({ message: "Please log in first." });
@@ -43,6 +43,77 @@ function requireApprovedSeller(req, res, next) {
   }
   next();
 }
+
+// ── GET /api/items ─────────────────────────────────────────
+// Public: list all items (optionally filtered by ?sellerId=, ?category=)
+router.get("/", async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.sellerId) filter.sellerId = req.query.sellerId;
+    if (req.query.category) filter.category = req.query.category;
+    const items = await Item.find(filter).sort({ createdAt: -1 }).limit(200);
+    return res.status(200).json({ items });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── POST /api/items/ai-search ──────────────────────────────
+// Server-side proxy: keeps Anthropic API key out of the browser
+router.post("/ai-search", express.json({ limit: "10mb" }), async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ message: "AI search is not configured on this server." });
+  }
+
+  const { base64Image, mediaType } = req.body;
+  if (!base64Image || !mediaType) {
+    return res.status(400).json({ message: "base64Image and mediaType are required." });
+  }
+
+  try {
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-20250514",
+        max_tokens: 500,
+        system: `You are a fashion analysis AI for a thrift shop directory called Thriftly.
+Given an image of clothing or an outfit, identify the key visual characteristics and return a JSON object with these fields:
+{
+  "searchTerms": ["array", "of", "relevant", "search", "keywords"],
+  "colors": ["dominant colors"],
+  "styles": ["e.g. casual, streetwear, vintage, minimal, formal, grunge"],
+  "categories": ["e.g. tops, bottoms, outerwear, dresses, sneakers, accessories"],
+  "era": "approximate fashion era (e.g. 70s, 80s, 90s, modern, classic)",
+  "description": "brief 1-sentence description of the style"
+}
+Focus on: silhouette, color palette, fabric texture cues, style era, and overall aesthetic.
+Return ONLY valid JSON, no markdown or explanation.`,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: base64Image },
+            },
+            { type: "text", text: "Analyze this clothing/outfit image and return the JSON." },
+          ],
+        }],
+      }),
+    });
+
+    const data = await anthropicRes.json();
+    return res.status(anthropicRes.status).json(data);
+  } catch (err) {
+    console.error("AI search proxy error:", err);
+    return res.status(500).json({ message: "AI search failed." });
+  }
+});
 
 // ── POST /api/items ────────────────────────────────────────
 // Seller lists a new item
@@ -93,6 +164,23 @@ router.get("/my", requireApprovedSeller, async (req, res) => {
 
     const items = await Item.find({ sellerId: seller._id }).sort({ createdAt: -1 });
     return res.status(200).json({ items });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── GET /api/items/:id ─────────────────────────────────────
+// Public: get a single item by ID (increments view count)
+router.get("/:id", async (req, res) => {
+  try {
+    const item = await Item.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { viewCount: 1 } },
+      { new: true }
+    ).populate("sellerId", "shopName businessName");
+    
+    if (!item) return res.status(404).json({ message: "Item not found." });
+    return res.status(200).json({ item });
   } catch (err) {
     return res.status(500).json({ message: "Server error." });
   }

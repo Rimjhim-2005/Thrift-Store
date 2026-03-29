@@ -4,6 +4,7 @@ const conversationSchema = new mongoose.Schema(
   {
     buyerId: { type: String, required: true, index: true },
     sellerId: { type: String, required: true, index: true },
+    shopName: { type: String, default: "" },
     productId: { type: String, default: "" },
     productName: { type: String, default: "" },
     productPrice: { type: Number, default: 0 },
