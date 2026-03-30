@@ -11,6 +11,11 @@ export default function ShopSettings({ onBack, user }) {
   const [msg, setMsg] = useState("");
   const [shopDescription, setShopDescription] = useState("");
   const [tagsStr, setTagsStr] = useState("");
+  const [location, setLocation] = useState("");
+  const [hours, setHours] = useState("");
+  const [phone, setPhone] = useState("");
+  const [shopEmail, setShopEmail] = useState("");
+  const [since, setSince] = useState("");
   const [slug, setSlug] = useState("");
   const [shopName, setShopName] = useState("");
   const [headerPreview, setHeaderPreview] = useState("");
@@ -32,14 +37,15 @@ export default function ShopSettings({ onBack, user }) {
         if (data?.seller) {
           setShopDescription(data.seller.shopDescription || "");
           setTagsStr((data.seller.tags || []).join(", "));
+          setLocation(data.seller.location || "");
+          setHours(data.seller.hours || "");
+          setPhone(data.seller.phone || "");
+          setShopEmail(data.seller.shopEmail || "");
+          setSince(data.seller.since || "");
           setSlug(data.seller.slug || "");
           setShopName(data.seller.shopName || "");
-          if (data.seller.headerImageUrl) {
-            setHeaderPreview(assetUrl(data.seller.headerImageUrl));
-          }
-          if (data.seller.shopLogoUrl) {
-            setLogoPreview(assetUrl(data.seller.shopLogoUrl));
-          }
+          if (data.seller.headerImageUrl) setHeaderPreview(assetUrl(data.seller.headerImageUrl));
+          if (data.seller.shopLogoUrl) setLogoPreview(assetUrl(data.seller.shopLogoUrl));
         }
       })
       .catch(() => {})
@@ -64,7 +70,7 @@ export default function ShopSettings({ onBack, user }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ shopDescription, tags }),
+        body: JSON.stringify({ shopDescription, tags, location, hours, phone, shopEmail, since }),
       });
       if (!res.ok) throw new Error("Save failed");
       setMsg("Saved.");
@@ -205,8 +211,45 @@ export default function ShopSettings({ onBack, user }) {
           onChange={(e) => setTagsStr(e.target.value)}
           placeholder="Vintage, Denim, Streetwear"
         />
+        <label className="shopsettings-label">Location</label>
+        <input
+          className="shopsettings-input"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="e.g. Lahore, Pakistan"
+        />
+        <label className="shopsettings-label">Hours</label>
+        <input
+          className="shopsettings-input"
+          value={hours}
+          onChange={(e) => setHours(e.target.value)}
+          placeholder="e.g. Mon–Sat 10 am – 7 pm"
+        />
+        <label className="shopsettings-label">Phone</label>
+        <input
+          className="shopsettings-input"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+92 300 0000000"
+        />
+        <label className="shopsettings-label">Contact email</label>
+        <input
+          className="shopsettings-input"
+          type="email"
+          value={shopEmail}
+          onChange={(e) => setShopEmail(e.target.value)}
+          placeholder="shop@example.com"
+        />
+        <label className="shopsettings-label">Established (year or text)</label>
+        <input
+          className="shopsettings-input"
+          value={since}
+          onChange={(e) => setSince(e.target.value)}
+          placeholder="2019"
+        />
         <button type="button" className="shopsettings-primary" onClick={saveText} disabled={saving}>
-          Save text
+          Save
         </button>
       </section>
 

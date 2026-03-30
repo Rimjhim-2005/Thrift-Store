@@ -128,6 +128,10 @@ router.get("/my", requireApprovedSellerApi, async (req, res) => {
         shopDescription: s.shopDescription || "",
         tags: s.tags || [],
         location: s.location || "",
+        hours: s.hours || "",
+        phone: s.phone || "",
+        shopEmail: s.shopEmail || "",
+        since: s.since || "",
         headerImageUrl: absUploadUrl(s.headerImageUrl || ""),
         shopLogoUrl: absUploadUrl(s.shopLogoUrl || ""),
       },
@@ -156,12 +160,23 @@ router.patch("/my", requireApprovedSellerApi, async (req, res) => {
         .filter(Boolean)
         .slice(0, 20);
     }
+    const sanitize = (v) => String(v || "").replace(/[<>]/g, "").trim().slice(0, 300);
+    if (req.body.location  !== undefined) seller.location  = sanitize(req.body.location);
+    if (req.body.hours     !== undefined) seller.hours     = sanitize(req.body.hours);
+    if (req.body.phone     !== undefined) seller.phone     = sanitize(req.body.phone);
+    if (req.body.shopEmail !== undefined) seller.shopEmail = sanitize(req.body.shopEmail);
+    if (req.body.since     !== undefined) seller.since     = sanitize(req.body.since);
     await seller.save();
     return res.status(200).json({
       message: "Saved.",
       seller: {
         shopDescription: seller.shopDescription,
         tags: seller.tags,
+        location: seller.location,
+        hours: seller.hours,
+        phone: seller.phone,
+        shopEmail: seller.shopEmail,
+        since: seller.since,
       },
     });
   } catch (err) {

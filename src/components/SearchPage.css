@@ -294,3 +294,15 @@
   cursor: pointer; transition: background 0.2s;
 }
 .sp-browse-all-btn:hover { background: var(--moss); }
+
+/* Fuzzy match indicator */
+.sp-fuzzy-indicator {
+  font-size: 13px;
+  color: var(--moss);
+  font-style: italic;
+}
+
+/* Search button active state */
+.sp-search-btn:active {
+  transform: translateY(1px);
+}

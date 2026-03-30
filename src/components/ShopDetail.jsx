@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { assetUrl } from "../utils/assetUrl";
+import StarRating from "./StarRating";
 import "./ShopDetail.css";
 
 const API = "http://localhost:5000/api";
@@ -22,6 +23,14 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
   const [remoteItems, setRemoteItems] = useState([]);
   const [remoteShop, setRemoteShop] = useState(null);
   const [fetchFailed, setFetchFailed] = useState(false);
+  
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [userReview, setUserReview] = useState(null);
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   const storeKey = useMemo(() => {
     const k = shop?.slug || shop?.shopName || shop?.name || "";
@@ -69,6 +78,34 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
     fetch(`${API}/shops/${remoteShop.id}/view`, { method: "POST" }).catch(() => {});
   }, [remoteShop?.id]);
 
+  // Fetch reviews when shop loads
+  useEffect(() => {
+    if (!remoteShop?.id) {
+      setReviews([]);
+      return;
+    }
+    
+    // Fetch all reviews
+    fetch(`${API}/reviews/${remoteShop.id}`)
+      .then((r) => (r.ok ? r.json() : { reviews: [] }))
+      .then((data) => setReviews(data.reviews || []))
+      .catch(() => setReviews([]));
+    
+    // Check if user has already reviewed
+    if (user) {
+      fetch(`${API}/reviews/user/${remoteShop.id}`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : { hasReviewed: false }))
+        .then((data) => {
+          if (data.hasReviewed && data.review) {
+            setUserReview(data.review);
+            setNewRating(data.review.rating);
+            setNewComment(data.review.comment || "");
+          }
+        })
+        .catch(() => {});
+    }
+  }, [remoteShop?.id, user]);
+
   const products = remoteItems;
 
   const filtered = products
@@ -93,7 +130,13 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
     longDesc: remoteShop?.shopDescription || shop?.longDesc || "",
     tags: (remoteShop?.tags?.length ? remoteShop.tags : shop?.tags) || [],
     location: remoteShop?.location || shop?.location || "",
+    hours: remoteShop?.hours || shop?.hours || "",
+    phone: remoteShop?.phone || shop?.phone || "",
+    shopEmail: remoteShop?.shopEmail || shop?.email || "",
+    since: remoteShop?.since || shop?.since || "",
     items: remoteShop?.itemCount ?? shop?.items,
+    rating: remoteShop?.averageRating ?? shop?.rating ?? 4.8,
+    reviews: remoteShop?.reviewCount ?? shop?.reviews ?? 0,
   };
 
   const headerStyle = remoteShop?.headerImageUrl
@@ -106,6 +149,52 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
 
   const wishlistIds = useMemo(() => new Set((user?.wishlist || []).map(String)), [user?.wishlist]);
   const [wishPopId, setWishPopId] = useState(null);
+
+  // Submit review handler
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!user || !remoteShop?.id || newRating < 1) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          sellerId: remoteShop.id,
+          rating: newRating,
+          comment: newComment,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUserReview({ rating: newRating, comment: newComment });
+        setShowReviewForm(false);
+        
+        // Refresh reviews list
+        const reviewsRes = await fetch(`${API}/reviews/${remoteShop.id}`);
+        if (reviewsRes.ok) {
+          const reviewsData = await reviewsRes.json();
+          setReviews(reviewsData.reviews || []);
+        }
+        
+        // Update remote shop rating
+        if (data.sellerRating !== undefined) {
+          setRemoteShop((prev) => ({
+            ...prev,
+            averageRating: data.sellerRating,
+            reviewCount: data.reviewCount,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to submit review:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const toggleWishlist = async (e, product) => {
     e.stopPropagation();
@@ -167,9 +256,12 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
               </div>
               <div className="sd-header-badges">
                 <div className="sd-rating">
-                  <span className="sd-stars">{"★".repeat(Math.round(shop?.rating || 4.8))}</span>
-                  <span className="sd-rating-num">{shop?.rating ?? 4.8}</span>
-                  <span className="sd-rating-count">({shop?.reviews ?? 0} reviews)</span>
+                  <StarRating 
+                    rating={display.rating} 
+                    size="small" 
+                    showValue={true}
+                  />
+                  <span className="sd-rating-count">({display.reviews} reviews)</span>
                 </div>
                 <div className="sd-verified">✓ Verified Shop</div>
               </div>
@@ -199,23 +291,23 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
             <div className="sd-detail-list">
               <div className="sd-detail-row">
                 <span className="sd-detail-icon">📍</span>
-                <span>{shop?.address || display.location || "—"}</span>
+                <span>{display.location || "—"}</span>
               </div>
               <div className="sd-detail-row">
                 <span className="sd-detail-icon">🕐</span>
-                <span>{shop?.hours || "—"}</span>
+                <span>{display.hours || "—"}</span>
               </div>
               <div className="sd-detail-row">
                 <span className="sd-detail-icon">📞</span>
-                <span>{shop?.phone || "—"}</span>
+                <span>{display.phone || "—"}</span>
               </div>
               <div className="sd-detail-row">
                 <span className="sd-detail-icon">✉️</span>
-                <span>{shop?.email || "—"}</span>
+                <span>{display.shopEmail || "—"}</span>
               </div>
               <div className="sd-detail-row">
                 <span className="sd-detail-icon">📅</span>
-                <span>Est. {shop?.since || "—"}</span>
+                <span>Est. {display.since || "—"}</span>
               </div>
             </div>
           </div>
@@ -226,7 +318,7 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
               <span className="sd-stat-label">Listed Items</span>
             </div>
             <div className="sd-stat">
-              <span className="sd-stat-num">{shop?.reviews ?? "—"}</span>
+              <span className="sd-stat-num">{display.reviews ?? "—"}</span>
               <span className="sd-stat-label">Reviews</span>
             </div>
             <div className="sd-stat">
@@ -337,6 +429,116 @@ export default function ShopDetail({ shop, user, onUserUpdate, onBack, onProduct
               );
             })}
           </div>
+          {/* Reviews Section */}
+          <div className="sd-reviews-section">
+            <div className="sd-reviews-header">
+              <h2 className="sd-reviews-title">
+                Reviews <span className="sd-reviews-count">({reviews.length})</span>
+              </h2>
+              {user && !userReview && (
+                <button
+                  type="button"
+                  className="sd-write-review-btn"
+                  onClick={() => setShowReviewForm(true)}
+                >
+                  Write a Review
+                </button>
+              )}
+              {user && userReview && (
+                <button
+                  type="button"
+                  className="sd-write-review-btn"
+                  onClick={() => setShowReviewForm(true)}
+                >
+                  Edit Your Review
+                </button>
+              )}
+            </div>
+
+            {/* Review Form */}
+            {showReviewForm && user && (
+              <form className="sd-review-form" onSubmit={handleSubmitReview}>
+                <h3 className="sd-review-form-title">
+                  {userReview ? "Edit your review" : "Write a review"}
+                </h3>
+                <div className="sd-review-rating-row">
+                  <label className="sd-review-label">Your Rating:</label>
+                  <StarRating
+                    rating={newRating}
+                    interactive={true}
+                    onRatingChange={setNewRating}
+                    size="large"
+                  />
+                </div>
+                <div className="sd-review-comment-row">
+                  <label className="sd-review-label">Your Review:</label>
+                  <textarea
+                    className="sd-review-textarea"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Share your experience with this shop..."
+                    maxLength={500}
+                    rows={4}
+                  />
+                  <span className="sd-review-char-count">
+                    {newComment.length}/500
+                  </span>
+                </div>
+                <div className="sd-review-form-actions">
+                  <button
+                    type="button"
+                    className="sd-review-cancel-btn"
+                    onClick={() => setShowReviewForm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="sd-review-submit-btn"
+                    disabled={newRating < 1 || submitting}
+                  >
+                    {submitting ? "Submitting..." : userReview ? "Update Review" : "Submit Review"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Reviews List */}
+            <div className="sd-reviews-list">
+              {reviews.length === 0 ? (
+                <p className="sd-no-reviews">
+                  No reviews yet. {user ? "Be the first to review this shop!" : "Login to leave a review."}
+                </p>
+              ) : (
+                reviews.map((review, index) => (
+                  <div
+                    key={review.id}
+                    className="sd-review-card"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="sd-review-header">
+                      <div className="sd-review-user">
+                        <div className="sd-review-avatar">
+                          {review.username?.charAt(0).toUpperCase() || "U"}
+                        </div>
+                        <span className="sd-review-username">{review.username || "Anonymous"}</span>
+                      </div>
+                      <div className="sd-review-meta">
+                        <StarRating rating={review.rating} size="small" />
+                        <span className="sd-review-date">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    {review.comment && (
+                      <p className="sd-review-comment">{review.comment}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

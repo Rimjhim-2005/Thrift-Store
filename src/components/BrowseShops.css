@@ -38,7 +38,7 @@
 .shop-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(45,36,22,0.12); }
 
 .shop-card-banner {
-  height: 140px; position: relative; overflow: hidden;
+  height: 140px; position: relative;
 }
 .banner-1 { background: linear-gradient(135deg, #8A9E6B 0%, #5C6B3A 100%); }
 .banner-2 { background: linear-gradient(135deg, #C4844A 0%, #8B5E34 100%); }
@@ -47,12 +47,21 @@
 .banner-5 { background: linear-gradient(135deg, #B88C5A 0%, #7A5C3A 100%); }
 .banner-6 { background: linear-gradient(135deg, #9E6B6B 0%, #6B3A3A 100%); }
 
+.banner-default { background: #f0ece4; }
+
 .shop-logo {
   position: absolute; bottom: -24px; left: 24px;
   width: 52px; height: 52px; border-radius: 12px;
   background: white; border: 2px solid white;
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.shop-logo-img {
+  position: absolute; bottom: -24px; left: 24px;
+  width: 52px; height: 52px; border-radius: 12px;
+  object-fit: cover; border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: white;
 }
 
 .shop-card-body { padding: 36px 24px 24px; }

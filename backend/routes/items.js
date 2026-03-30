@@ -201,4 +201,44 @@ router.delete("/:id", requireApprovedSeller, async (req, res) => {
   }
 });
 
+// ── PUT /api/items/:id ─────────────────────────────────────
+// Update an existing item (seller only)
+router.put("/:id", requireApprovedSeller, upload.array("images", 5), async (req, res) => {
+  try {
+    const seller = await Seller.findOne({ userId: req.session.userId });
+    if (!seller) return res.status(404).json({ message: "Seller not found." });
+
+    const { name, description, price, category, condition, stock, imagesToKeep } = req.body;
+
+    // Find existing item
+    const item = await Item.findOne({ _id: req.params.id, sellerId: seller._id });
+    if (!item) return res.status(404).json({ message: "Item not found." });
+
+    // Parse images to keep (existing images that weren't deleted)
+    const keepImages = imagesToKeep ? JSON.parse(imagesToKeep) : item.images;
+
+    // Add new uploaded images
+    const newImages = req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [];
+
+    // Combine kept images with new images (max 5 total)
+    const updatedImages = [...keepImages, ...newImages].slice(0, 5);
+
+    // Update item fields
+    item.name = name || item.name;
+    item.description = description !== undefined ? description : item.description;
+    item.price = price !== undefined ? Number(price) : item.price;
+    item.category = category !== undefined ? category : item.category;
+    item.condition = condition !== undefined ? condition : item.condition;
+    item.stock = stock !== undefined ? Number(stock) : item.stock;
+    item.images = updatedImages;
+
+    await item.save();
+
+    return res.status(200).json({ message: "Item updated successfully!", item });
+  } catch (err) {
+    console.error("Update item error:", err);
+    return res.status(500).json({ message: "Failed to update item. Please try again." });
+  }
+});
+
 module.exports = router;

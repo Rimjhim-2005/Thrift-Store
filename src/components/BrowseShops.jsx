@@ -2,7 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import "./BrowseShops.css";
 
 const API = "http://localhost:5000/api";
+const IMG_BASE = "http://localhost:5000";
 const FILTERS = ["All", "Vintage", "Streetwear", "Luxury Resale", "Kids & Baby", "Accessories", "Near Me"];
+
+function imgSrc(url) {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${IMG_BASE}${url}`;
+}
 
 function ShopCard({ shop, delay, onShopClick }) {
   // Map API shop structure to display fields
@@ -11,16 +17,24 @@ function ShopCard({ shop, delay, onShopClick }) {
     location: shop.location || "Location not specified",
     desc: shop.shopDescription || "Browse our curated collection",
     tags: shop.tags && shop.tags.length > 0 ? shop.tags : ["Thrifted"],
-    items: 0, // Will be retrieved separately
-    logo: "🛍️",
-    banner: "banner-default",
+    items: 0,
     ...shop,
   };
 
+  const bannerUrl = imgSrc(shop.headerImageUrl);
+  const logoUrl = imgSrc(shop.shopLogoUrl);
+
   return (
     <div className={`shop-card reveal reveal-delay-${delay}`} onClick={() => onShopClick(displayShop)}>
-      <div className={`shop-card-banner ${displayShop.banner}`}>
-        <div className="shop-logo">{displayShop.logo}</div>
+      <div
+        className={`shop-card-banner ${!bannerUrl ? "banner-default" : ""}`}
+        style={bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      >
+        {logoUrl ? (
+          <img src={logoUrl} alt="" className="shop-logo-img" />
+        ) : (
+          <div className="shop-logo">🛍️</div>
+        )}
       </div>
       <div className="shop-card-body">
         <h3 className="shop-name">{displayShop.name}</h3>
@@ -51,10 +65,12 @@ export default function BrowseShops({ onShopClick, onViewAll }) {
     const fetchTopShops = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API}/analytics/top-shops?limit=6`, { credentials: "include" });
-        const data = await res.ok ? await res.json() : { shops: [] };
-        // Sort by viewCount descending (most viewed first)
-        const sorted = (data.shops || []).sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+        const res = await fetch(`${API}/shops`, { credentials: "include" });
+        const data = res.ok ? await res.json() : { shops: [] };
+        // Sort by viewCount descending (most viewed first), take top 6
+        const sorted = (data.shops || [])
+          .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+          .slice(0, 6);
         setShops(sorted);
       } catch (err) {
         console.error("Failed to fetch top shops:", err);

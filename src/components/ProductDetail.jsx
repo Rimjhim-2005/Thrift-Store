@@ -4,6 +4,7 @@ import { getListingStockCap } from "../utils/stock";
 import "./ProductDetail.css";
 
 const CONDITIONS = { Excellent: 5, "Very Good": 4, Good: 3 };
+const IMG_BASE = "http://localhost:5000";
 const CONDITION_DESC = {
   Excellent: "No visible wear. Like new.",
   "Very Good": "Minor signs of wear. Well cared for.",
@@ -65,7 +66,29 @@ export default function ProductDetail({
   }, [loadedProduct?._id, loadedProduct?.sellerId]);
 
   const displayProduct = loadedProduct || product;
-  const shop = SHOPS.find((s) => s.id === displayProduct?.shopId);
+
+  // Build shop object from mock data (shopId) or database seller (sellerId)
+  const shop = useMemo(() => {
+    // For mock data items (have shopId)
+    const mockShop = SHOPS.find((s) => s.id === displayProduct?.shopId);
+    if (mockShop) return mockShop;
+
+    // For database items (have sellerId which is a populated Seller object)
+    const seller = displayProduct?.sellerId || sellerInfo;
+    if (seller?.shopName) {
+      return {
+        name: seller.shopName,
+        shopName: seller.shopName,
+        slug: seller.slug || seller.shopName.toLowerCase().replace(/\s+/g, '-'),
+        logo: "🏪",
+        rating: 4,
+        reviews: 0,
+        location: seller.location || "Online",
+      };
+    }
+
+    return undefined;
+  }, [displayProduct, sellerInfo]);
 
   const [activeImg, setActiveImg]     = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -90,6 +113,14 @@ export default function ProductDetail({
     if (remaining < 1) return;
     setQty((prev) => Math.min(Math.max(1, prev), remaining));
   }, [remaining, productId]);
+
+  // Use real images from backend if available, otherwise fall back to palette placeholders
+  const hasRealImages = displayProduct?.images?.length > 0;
+  const realImages = hasRealImages
+    ? displayProduct.images.map((img) =>
+        img.startsWith("http") ? img : `${IMG_BASE}${img}`
+      )
+    : [];
 
   const thumbPalettes = [
     displayProduct?.palette,
@@ -177,18 +208,41 @@ export default function ProductDetail({
         {/* ── Gallery ── */}
         <div className="pd-gallery">
           <div className="pd-thumbs">
-            {thumbPalettes.map((pal, i) => (
-              <div
-                key={i}
-                className={`pd-thumb ${activeImg === i ? "active" : ""}`}
-                style={{ background: pal }}
-                onClick={() => setActiveImg(i)}
-              />
-            ))}
+            {hasRealImages
+              ? realImages.map((src, i) => (
+                  <div
+                    key={i}
+                    className={`pd-thumb ${activeImg === i ? "active" : ""}`}
+                    onClick={() => setActiveImg(i)}
+                  >
+                    <img src={src} alt={`${displayProduct?.name} ${i + 1}`} className="pd-thumb-img" />
+                  </div>
+                ))
+              : thumbPalettes.map((pal, i) => (
+                  <div
+                    key={i}
+                    className={`pd-thumb ${activeImg === i ? "active" : ""}`}
+                    style={{ background: pal }}
+                    onClick={() => setActiveImg(i)}
+                  />
+                ))}
           </div>
-          <div className="pd-main-img" style={{ background: thumbPalettes[activeImg] }}>
-            {displayProduct?.tag && <span className="pd-img-tag">{displayProduct.tag}</span>}
-            <div className="pd-img-label">📷 Placeholder Image</div>
+          <div
+            className="pd-main-img"
+            style={hasRealImages ? {} : { background: thumbPalettes[activeImg] }}
+          >
+            {hasRealImages ? (
+              <img
+                src={realImages[activeImg] || realImages[0]}
+                alt={displayProduct?.name}
+                className="pd-main-photo"
+              />
+            ) : (
+              <>
+                {displayProduct?.tag && <span className="pd-img-tag">{displayProduct.tag}</span>}
+                <div className="pd-img-label">📷 Placeholder Image</div>
+              </>
+            )}
           </div>
         </div>
 
@@ -352,16 +406,23 @@ export default function ProductDetail({
         <div className="pd-related">
           <h2 className="pd-related-title">More from <em>{shop?.name || "Shop"}</em></h2>
           <div className="pd-related-grid">
-            {relatedProducts.map((p) => (
-              <div key={p.id} className="pd-related-card" onClick={() => onRelatedProduct(p)}>
-                <div className="pd-related-img" style={{ background: p.palette }} />
-                <div className="pd-related-info">
-                  <p className="pd-related-category">{p.category}</p>
-                  <p className="pd-related-name">{p.name}</p>
-                  <p className="pd-related-price">₹ {p.price?.toLocaleString()}</p>
+            {relatedProducts.map((p) => {
+              const relImg = p.images?.[0]
+                ? (p.images[0].startsWith("http") ? p.images[0] : `${IMG_BASE}${p.images[0]}`)
+                : null;
+              return (
+                <div key={p._id || p.id} className="pd-related-card" onClick={() => onRelatedProduct(p)}>
+                  <div className="pd-related-img" style={relImg ? {} : { background: p.palette }}>
+                    {relImg && <img src={relImg} alt={p.name} className="pd-related-photo" />}
+                  </div>
+                  <div className="pd-related-info">
+                    <p className="pd-related-category">{p.category}</p>
+                    <p className="pd-related-name">{p.name}</p>
+                    <p className="pd-related-price">₹ {p.price?.toLocaleString()}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

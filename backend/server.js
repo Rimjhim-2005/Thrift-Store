@@ -15,6 +15,8 @@ const shopsRoutes = require("./routes/shops");
 const itemsRoutes = require("./routes/items");
 const chatRoutes = require("./routes/chat");
 const analyticsRoutes = require("./routes/analytics");
+const reviewsRoutes = require("./routes/reviews");
+const searchRoutes = require("./routes/search");
 const path = require("path");
 
 const app = express();
@@ -93,6 +95,8 @@ app.use("/api/shops", shopsRoutes);
 app.use("/api/items", itemsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/reviews", reviewsRoutes);
+app.use("/api/search", searchRoutes);
 
 const io = new Server(httpServer, {
   cors: {

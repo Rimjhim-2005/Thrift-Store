@@ -79,6 +79,21 @@
   font-family: 'DM Sans', sans-serif;
 }
 
+/* Real images */
+.pd-thumb-img {
+  width: 100%; height: 100%; object-fit: cover;
+  border-radius: 6px;
+}
+.pd-thumb { overflow: hidden; }
+.pd-main-photo {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+}
+.pd-related-photo {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+}
+
 /* ── Info ── */
 .pd-info { display: flex; flex-direction: column; gap: 28px; }
 

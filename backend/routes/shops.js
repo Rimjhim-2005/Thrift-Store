@@ -65,11 +65,17 @@ async function publicShopDoc(seller, itemCount) {
     tags: seller.tags || [],
     shopDescription: seller.shopDescription || "",
     location: seller.location || "",
+    hours: seller.hours || "",
+    phone: seller.phone || "",
+    shopEmail: seller.shopEmail || "",
+    since: seller.since || "",
     headerImageUrl: absUploadUrl(seller.headerImageUrl),
     shopLogoUrl: absUploadUrl(seller.shopLogoUrl),
     orderCount: seller.orderCount ?? 0,
     viewCount: seller.viewCount ?? 0,
     itemCount,
+    averageRating: seller.averageRating ?? 0,
+    reviewCount: seller.reviewCount ?? 0,
   };
 }
 

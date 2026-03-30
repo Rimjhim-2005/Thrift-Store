@@ -7,6 +7,10 @@ const sellerSchema = new mongoose.Schema(
     slug:            { type: String, trim: true, sparse: true, unique: true },
     shopDescription: { type: String, default: "" },
     location:        { type: String, default: "" },
+    hours:           { type: String, default: "" },
+    phone:           { type: String, default: "" },
+    shopEmail:       { type: String, default: "" },
+    since:           { type: String, default: "" },
     category:        { type: String, default: "" },
     tags:            [{ type: String, trim: true }],
     orderCount:      { type: Number, default: 0 },
@@ -16,6 +20,8 @@ const sellerSchema = new mongoose.Schema(
     isApproved:      { type: Boolean, default: false },
     approvalToken:   { type: String },
     approvedAt:      { type: Date },
+    averageRating:   { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount:     { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

@@ -4,6 +4,12 @@ const Analytics = require("../models/Analytics");
 const Seller = require("../models/Seller");
 const Item = require("../models/Item");
 
+const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+function absUrl(url) {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `${BASE_URL}${url}`;
+}
+
 // ── GET /api/analytics/top-shops ────────────────────────────────────────
 // Get the most viewed shops (bestsellers)
 router.get("/top-shops", async (req, res) => {
@@ -14,14 +20,29 @@ router.get("/top-shops", async (req, res) => {
     const topShops = await Seller.find({ isApproved: true })
       .sort({ viewCount: -1, orderCount: -1, createdAt: -1 })
       .limit(limit)
-      .select("shopName slug shopDescription location shopLogoUrl viewCount orderCount rating");
+      .select("shopName slug shopDescription location shopLogoUrl headerImageUrl tags viewCount orderCount rating");
 
-    return res.status(200).json({ shops: topShops });
+    const shops = topShops.map((s) => ({
+      _id: s._id,
+      shopName: s.shopName,
+      slug: s.slug,
+      shopDescription: s.shopDescription,
+      location: s.location,
+      shopLogoUrl: absUrl(s.shopLogoUrl),
+      headerImageUrl: absUrl(s.headerImageUrl),
+      tags: s.tags || [],
+      viewCount: s.viewCount,
+      orderCount: s.orderCount,
+      rating: s.rating,
+    }));
+
+    return res.status(200).json({ shops });
   } catch (err) {
     console.error("Top shops error:", err);
     return res.status(500).json({ message: "Failed to fetch top shops." });
   }
 });
+
 
 // ── GET /api/analytics/top-items ────────────────────────────────────────
 // Get the most viewed items overall

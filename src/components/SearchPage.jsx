@@ -108,12 +108,25 @@ function scoreProductByAI(product, aiResult) {
 }
 
 // ── Product card ─────────────────────────────────────────────────────────────
-function ProductCard({ product, onProductClick, score }) {
-  const shop = SHOPS.find((s) => s.id === product.shopId);
+function ProductCard({ product, onProductClick }) {
+  // Handle both mock data (shopId) and DB items (sellerId which may be populated)
+  const sellerId = product.sellerId?._id || product.sellerId;
+  const shop = SHOPS.find((s) => s.id === product.shopId || s.id === sellerId?.toString());
+  const shopName = shop?.name || product.sellerId?.shopName || product.shopName || "—";
+  const rawImg = product.images?.[0];
+  const imageUrl = rawImg
+    ? (rawImg.startsWith("http") ? rawImg : `http://localhost:5000${rawImg}`)
+    : null;
+  const palette = product.palette || "linear-gradient(135deg,#C9B99A 0%,#A08060 100%)";
+
   return (
     <div className="sp-product-card" onClick={() => onProductClick(product)}>
-      <div className="sp-product-img" style={{ background: product.palette }}>
-        {product.tag && <span className="sp-product-tag">{product.tag}</span>}
+      <div className="sp-product-img" style={{ background: imageUrl ? "#f5f0e8" : palette }}>
+        {imageUrl && (
+          <img src={imageUrl} alt={product.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }} />
+        )}
+        {product.category && <span className="sp-product-tag">{product.category}</span>}
         <div className="sp-product-hover-overlay">
           <span>View Product</span>
         </div>
@@ -127,11 +140,11 @@ function ProductCard({ product, onProductClick, score }) {
           ))}
         </div>
         <div className="sp-product-meta">
-          <span className="sp-product-shop">🏪 {shop?.name}</span>
-          <span className="sp-product-size">{product.size}</span>
+          <span className="sp-product-shop">🏪 {shopName}</span>
+          <span className="sp-product-size">{product.condition}</span>
         </div>
         <div className="sp-product-footer">
-          <span className="sp-product-price">₹ {product.price.toLocaleString()}</span>
+          <span className="sp-product-price">₹ {Number(product.price || 0).toLocaleString()}</span>
           <span className="sp-product-condition">{product.condition}</span>
         </div>
       </div>
@@ -140,13 +153,31 @@ function ProductCard({ product, onProductClick, score }) {
 }
 
 // ── Main SearchPage ───────────────────────────────────────────────────────────
-export default function SearchPage({ onBack, onProductClick }) {
-  const [query, setQuery]               = useState("");
-  const [category, setCategory]         = useState("All");
+export default function SearchPage({ onBack, onProductClick, initialQuery = "", initialCategory = "All" }) {
+  const [query, setQuery]               = useState(initialQuery);
+  const [category, setCategory]         = useState(initialCategory);
   const [sort, setSort]                 = useState("relevance");
   const [results, setResults]           = useState(null);
   const [allItems, setAllItems]         = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Sync if parent re-navigates with different initial values
+  useEffect(() => {
+    setQuery(initialQuery);
+    setCategory(initialCategory);
+    setAiResults(null);
+    setAiResult(null);
+    if (initialQuery) {
+      setResults(null); // will trigger a text search
+    } else if (allItems.length > 0) {
+      // Browse mode: show all items sorted by most viewed
+      const sorted = [...allItems].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+      setResults(sorted);
+    } else {
+      setResults(null);
+    }
+  }, [initialQuery, initialCategory]);
 
   // Camera / AI state
   const [cameraMode, setCameraMode]     = useState(false);
@@ -164,7 +195,13 @@ export default function SearchPage({ onBack, onProductClick }) {
       try {
         const res = await fetch(`${API}/items`, { credentials: "include" });
         const data = await res.ok ? await res.json() : { items: [] };
-        setAllItems(data.items || []);
+        const fetched = data.items || [];
+        setAllItems(fetched);
+        // Browse mode: auto-show all items sorted by most viewed when no active search
+        if (!initialQuery.trim()) {
+          const sorted = [...fetched].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+          setResults(sorted);
+        }
       } catch (err) {
         console.error("Failed to fetch items:", err);
         setAllItems([]);
@@ -184,22 +221,46 @@ export default function SearchPage({ onBack, onProductClick }) {
   };
 
   // ── Text search ────────────────────────────────────────────────────────────
-  const handleSearch = (q = query) => {
+  const handleSearch = async (q = query) => {
     const q2 = q.trim();
-    if (!q2) { setResults(null); return; }
+    if (!q2) {
+      // Browse mode: show all items sorted by most viewed
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`${API}/search?sort=${sort}`, { credentials: "include" });
+        const data = await res.ok ? await res.json() : { items: [] };
+        const items = data.items || [];
+        setResults(items);
+      } catch (err) {
+        console.error("Search error:", err);
+        setResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+      setAiResults(null);
+      setAiResult(null);
+      return;
+    }
 
-    let scored = allItems.map((p) => ({ ...p, _score: scoreProduct(p, q2) }))
-      .filter((p) => p._score > 0);
-
-    if (category !== "All") scored = scored.filter((p) => p.category === category);
-
-    scored.sort((a, b) => {
-      if (sort === "price-asc")  return a.price - b.price;
-      if (sort === "price-desc") return b.price - a.price;
-      return b._score - a._score;
-    });
-
-    setResults(scored);
+    // Backend search with fuzzy matching
+    setSearchLoading(true);
+    try {
+      const categoryParam = category !== "All" ? `&category=${encodeURIComponent(category)}` : "";
+      const sortParam = sort !== "relevance" ? `&sort=${sort}` : "";
+      const res = await fetch(
+        `${API}/search?q=${encodeURIComponent(q2)}${categoryParam}${sortParam}`,
+        { credentials: "include" }
+      );
+      const data = await res.ok ? await res.json() : { items: [] };
+      const items = data.items || [];
+      setResults(items);
+    } catch (err) {
+      console.error("Search error:", err);
+      setResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+    
     setAiResults(null);
     setAiResult(null);
   };
@@ -256,11 +317,9 @@ export default function SearchPage({ onBack, onProductClick }) {
     return baseResults.filter((p) => {
       const blob = [
         ...(p.tags || []),
-        p.tag,
         p.category,
-        p.style,
-        p.color,
-        p.era,
+        p.name,
+        p.description,
       ].filter(Boolean).map((x) => String(x).toLowerCase());
       return wanted.some((w) => blob.some((b) => b.includes(w) || w.includes(b)));
     });
@@ -436,8 +495,15 @@ export default function SearchPage({ onBack, onProductClick }) {
 
       {/* ── Results ── */}
       <div className="sp-results-area">
-        {/* Empty state */}
-        {!hasSearch && !cameraMode && (
+        {/* Loading state */}
+        {(itemsLoading || searchLoading) && !hasSearch && !cameraMode && (
+          <div className="sp-empty">
+            <div className="sp-empty-icon">⏳</div>
+            <h2>{searchLoading ? "Searching..." : "Loading items..."}</h2>
+          </div>
+        )}
+        {/* Empty state — only when not loading */}
+        {!itemsLoading && !hasSearch && !cameraMode && (
           <div className="sp-empty">
             <div className="sp-empty-icon">🛍</div>
             <h2>Discover unique thrift finds</h2>
@@ -449,9 +515,20 @@ export default function SearchPage({ onBack, onProductClick }) {
         {hasSearch && (
           <div className="sp-results-header">
             <p className="sp-results-count">
-              {aiResults
-                ? `${displayedResults?.length ?? 0} items matching your photo`
-                : `${displayedResults?.length ?? 0} result${displayedResults?.length !== 1 ? "s" : ""} for "${query}"`}
+              {searchLoading ? (
+                "Searching..."
+              ) : aiResults ? (
+                `${displayedResults?.length ?? 0} items matching your photo`
+              ) : query ? (
+                <>
+                  {displayedResults?.length ?? 0} result{displayedResults?.length !== 1 ? "s" : ""} for "{query}"
+                  {displayedResults?.some(r => r._fuzzy) && (
+                    <span className="sp-fuzzy-indicator"> (includes similar matches)</span>
+                  )}
+                </>
+              ) : (
+                `${displayedResults?.length ?? 0} items — most viewed first`
+              )}
             </p>
           </div>
         )}
@@ -461,7 +538,7 @@ export default function SearchPage({ onBack, onProductClick }) {
           <div className="sp-results-grid">
             {displayedResults.map((product) => (
               <ProductCard
-                key={product.id}
+                key={product._id || product.id}
                 product={product}
                 onProductClick={onProductClick}
               />
@@ -470,12 +547,12 @@ export default function SearchPage({ onBack, onProductClick }) {
         )}
 
         {/* No results */}
-        {hasSearch && displayedResults && displayedResults.length === 0 && (
+        {hasSearch && !searchLoading && displayedResults && displayedResults.length === 0 && (
           <div className="sp-no-results">
             <div className="sp-empty-icon">🔍</div>
             <h2>No items found</h2>
-            <p>Try a different keyword or browse all shops.</p>
-            <button className="sp-browse-all-btn" onClick={onBack}>Browse All Shops</button>
+            <p>Try a different keyword or check your spelling. We search names, categories, and descriptions.</p>
+            <button className="sp-browse-all-btn" onClick={() => { setQuery(""); handleSearch(""); }}>Browse All Items</button>
           </div>
         )}
       </div>

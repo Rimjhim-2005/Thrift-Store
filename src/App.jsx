@@ -17,16 +17,20 @@ import AccountPage       from "./components/AccountPage";
 import MessagesPage      from "./components/MessagesPage";
 import AllShopsDirectory from "./components/AllShopsDirectory";
 import ShopSettings      from "./components/ShopSettings";
+import AboutUs           from "./components/AboutUs";
 import { SHOPS } from "./data";
 import { getListingStockCap } from "./utils/stock";
 
-// page: ... | "all-shops" | "shop-settings"
+// page: ... | "all-shops" | "shop-settings" | "about" | "all-items"
 
 export default function App() {
   const [page, setPage]                   = useState("home");
   const [activeShop, setActiveShop]       = useState(null);
   const [activeProduct, setActiveProduct] = useState(null);
   const [user, setUser]                   = useState(null);
+  const [navSearchInitQuery, setNavSearchInitQuery] = useState("");
+  const [navSearchInitCategory, setNavSearchInitCategory] = useState("All");
+  const [navFilterShopTag, setNavFilterShopTag] = useState(null);
   const API_BASE = "http://localhost:5000/api";
 
   // ---------- Auth persistence (Issue 1) ----------------------------------
@@ -107,14 +111,22 @@ export default function App() {
   };
 
   // ---------- Navigation helpers -----------------------------------------
-  const goHome     = ()     => { setPage("home");      window.scrollTo(0, 0); };
+  const goHome     = ()     => { setPage("home");      setNavFilterShopTag(null); window.scrollTo(0, 0); };
   const goLogin    = ()     => { setPage("login");     window.scrollTo(0, 0); };
-  const goSearch   = ()     => { setPage("search");    window.scrollTo(0, 0); };
+  const goSearch   = ()     => { setNavSearchInitQuery(""); setNavSearchInitCategory("All"); setPage("search"); window.scrollTo(0, 0); };
   const goListItem = ()     => { setPage("list-item"); window.scrollTo(0, 0); };
   const goMessages = (context = null) => { setInitialChatContext(context); setPage("messages"); window.scrollTo(0, 0); };
   const goAccount  = ()     => { setPage("account");   window.scrollTo(0, 0); };
   const goShop     = (shop) => { setActiveShop(shop);    setPage("shop");    window.scrollTo(0, 0); };
-  const goAllShops = ()     => { setPage("all-shops");  window.scrollTo(0, 0); };
+  const goAllShops = ()     => { setNavFilterShopTag(null); setPage("all-shops");  window.scrollTo(0, 0); };
+  const goAbout    = ()     => { setPage("about");     window.scrollTo(0, 0); };
+  const goAllItems = (category = "All") => {
+    setNavSearchInitQuery("");
+    setNavSearchInitCategory(category);
+    setPage("search");
+    window.scrollTo(0, 0);
+  };
+  const goShopsByTag = (tag) => { setNavFilterShopTag(tag); setPage("all-shops"); window.scrollTo(0, 0); };
   const goShopSettings = () => { setPage("shop-settings"); window.scrollTo(0, 0); };
   const goProduct  = (prod) => { setActiveProduct(prod); setPage("product"); window.scrollTo(0, 0); };
 
@@ -360,11 +372,13 @@ export default function App() {
   if (page === "login") {
     pageContent = <Login onBack={goHome} onLoginSuccess={handleLoginSuccess} />;
   } else if (page === "search") {
-    pageContent = <SearchPage onBack={goHome} onProductClick={goProduct} />;
+    pageContent = <SearchPage onBack={goHome} onProductClick={goProduct} initialQuery={navSearchInitQuery} initialCategory={navSearchInitCategory} />;
   } else if (page === "list-item") {
     pageContent = <ListItem onBack={goHome} user={user} onViewMyShop={goMyLiveShop} onViewItem={goViewItem} />;
   } else if (page === "all-shops") {
-    pageContent = <AllShopsDirectory onBack={goHome} onShopClick={goShop} />;
+    pageContent = <AllShopsDirectory onBack={goHome} onShopClick={goShop} filterTag={navFilterShopTag} />;
+  } else if (page === "about") {
+    pageContent = <AboutUs onBack={goHome} />;
   } else if (page === "shop-settings") {
     pageContent = <ShopSettings onBack={goAccount} user={user} />;
   } else if (page === "shop") {
@@ -382,7 +396,7 @@ export default function App() {
     pageContent = (
       <ProductDetail
         product={activeProduct}
-        onBackToShop={() => goShop(activeShop)}
+        onBackToShop={() => activeShop ? goShop(activeShop) : goHome()}
         onRelatedProduct={goProduct}
         onShopClick={goShop}
         cart={cartItems}
@@ -429,6 +443,11 @@ export default function App() {
           onCartClick={() => setCartOpen(true)}
           onProfileClick={goAccount}
           onMessagesClick={() => goMessages()}
+          onAllShopsClick={goAllShops}
+          onAllItemsClick={() => goAllItems("All")}
+          onAboutClick={goAbout}
+          onShopsByTag={goShopsByTag}
+          onItemsByCategory={(cat) => goAllItems(cat)}
         />
         <Hero onLoginClick={goLogin} />
         <HowItWorks user={user} />

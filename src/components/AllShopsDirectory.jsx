@@ -3,12 +3,17 @@ import "./AllShopsDirectory.css";
 
 const API = "http://localhost:5000/api";
 
-export default function AllShopsDirectory({ onBack, onShopClick }) {
+export default function AllShopsDirectory({ onBack, onShopClick, filterTag = null }) {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [activeTags, setActiveTags] = useState([]);
+  const [activeTags, setActiveTags] = useState(filterTag ? [filterTag] : []);
   const [searching, setSearching] = useState(false);
+
+  // Sync when parent changes filterTag (e.g. different dropdown click)
+  useEffect(() => {
+    setActiveTags(filterTag ? [filterTag] : []);
+  }, [filterTag]);
 
   const toggleTag = (tag) => {
     setActiveTags((prev) =>

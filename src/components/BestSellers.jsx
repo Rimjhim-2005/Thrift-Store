@@ -22,7 +22,7 @@ function ItemCard({ item, delay, onItemClick }) {
         ) : (
           <div className="bestseller-card-placeholder">📦</div>
         )}
-        <div className="bestseller-badge">⭐ {displayItem.viewCount} views</div>
+        <div className="bestseller-badge">🔥 Hot</div>
       </div>
       <div className="bestseller-card-body">
         <h3 className="bestseller-name">{displayItem.name}</h3>
@@ -77,10 +77,10 @@ export default function BestSellers({ onItemClick }) {
     <section id="bestsellers" className="bestsellers-section" ref={sectionRef}>
       <div className="bestsellers-header reveal">
         <div>
-          <span className="section-eyebrow">Most Viewed & Loved</span>
-          <h2 className="section-title-lg">Best <em>Sellers</em></h2>
+          <span className="section-eyebrow">Trending Now</span>
+          <h2 className="section-title-lg">Hot <em>Items</em></h2>
         </div>
-        <p className="bestsellers-sub">Discover the most popular items trending right now on Thriftly</p>
+        <p className="bestsellers-sub">The hottest items people are eyeing on Thriftly right now</p>
       </div>
 
       <div className="bestsellers-grid">
